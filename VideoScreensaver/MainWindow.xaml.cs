@@ -57,6 +57,10 @@ namespace VideoScreensaver {
                 case Key.D0:
                     volume = 0;
                     break;
+				case Key.Right:
+					imageTimer.Stop();
+					NextMediaItem();
+					break;
                 default:
                     EndFullScreensaver();
                     break;
@@ -99,7 +103,7 @@ namespace VideoScreensaver {
 
         private void NextMediaItem()
         {
-            currentItem = (currentItem + 1) % videoPaths.Count;
+			currentItem = new Random().Next(videoPaths.Count);
 
             FileInfo fi = new FileInfo(videoPaths[currentItem]);
             if (fi.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
