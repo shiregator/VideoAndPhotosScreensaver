@@ -1,8 +1,9 @@
 ﻿<Application x:Class="VideoScreensaver.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:videoScreensaver="clr-namespace:VideoScreensaver"
              Startup="OnStartup">
     <Application.Resources>
-         
+         <videoScreensaver:SettingsViewModel x:Key="SettingsViewModel"/>
     </Application.Resources>
 </Application>

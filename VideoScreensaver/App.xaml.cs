@@ -77,6 +77,8 @@ namespace VideoScreensaver
         }
 
         private void ConfigureScreensaver() {
+            new SettingsWindow().ShowDialog();
+            /*
             List<String> videoUri = PreferenceManager.ReadVideoSettings();
             Microsoft.Win32.OpenFileDialog openDialog = new Microsoft.Win32.OpenFileDialog();
             openDialog.Multiselect = true;
@@ -86,7 +88,7 @@ namespace VideoScreensaver
                 List<String> videos = new List<String>();
                 videos.AddRange(openDialog.FileNames);
                 PreferenceManager.WriteVideoSettings(videos);
-            }
+            }*/
         }
     }
 }

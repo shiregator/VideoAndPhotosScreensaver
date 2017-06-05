@@ -12,8 +12,14 @@ namespace VideoScreensaver {
     static class PreferenceManager {
 
         public const string BASE_KEY = "VideoScreensaver";
-        public const string VIDEO_PREFS_FILE = "Videos";
+        public const string VIDEO_PREFS_FILE = "Media";
         public const string VOLUME_PREFS_FILE = "Volume";
+        public const string INTERVAL_PREFS_FILE = "Interval";
+        public const string ALGORITHM_PREFS_FILE = "Alghoritm";
+
+        public const int ALGORITHM_SEQUENTIAL = 0;
+        public const int ALGORITHM_RANDOM = 1;
+        public const int ALGORITHM_RANDOM_NO_REPEAT = 2;
 
         public static List<String> ReadVideoSettings() {
             List<String> videos = new List<String>();
@@ -39,6 +45,38 @@ namespace VideoScreensaver {
 
         public static void WriteVolumeSetting(double volume) {
             WriteStringValue(VOLUME_PREFS_FILE, volume.ToString());
+        }
+
+        public static int ReadIntervalSetting()
+        {
+            try
+            {
+                return Convert.ToInt32(ReadStringValue(INTERVAL_PREFS_FILE));
+            }
+            catch (System.FormatException) { }
+            catch (System.OverflowException) { }
+            return 0;
+        }
+
+        public static void WriteIntervalSetting(int interval)
+        {
+            WriteStringValue(INTERVAL_PREFS_FILE, interval.ToString());
+        }
+
+        public static int ReadAlgorithmSetting()
+        {
+            try
+            {
+                return Convert.ToInt32(ReadStringValue(ALGORITHM_PREFS_FILE));
+            }
+            catch (System.FormatException) { }
+            catch (System.OverflowException) { }
+            return 0;
+        }
+
+        public static void WriteAlgorithmSetting(int alg)
+        {
+            WriteStringValue(ALGORITHM_PREFS_FILE, alg.ToString());
         }
 
         private static Tuple<RegistryKey, RegistryKey> OpenRegistryKey() {

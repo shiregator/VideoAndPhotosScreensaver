@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,7 +23,11 @@ namespace VideoScreensaver {
         private Point? lastMousePosition = null;  // Workaround for "MouseMove always fires when maximized" bug.
         private int currentItem = -1;
         private List<String> videoPaths;
+        private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
+        private List<String> acceptedExtensionsImages = new List<string>() {".jpg", ".png", ".bmp", ".gif"};
+        private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv" };
+        private int algorithm;
         private double volume {
             get { return FullScreenMedia.Volume; }
             set {
@@ -37,7 +42,7 @@ namespace VideoScreensaver {
             FullScreenMedia.Volume = PreferenceManager.ReadVolumeSetting();
             imageTimer = new DispatcherTimer();
             imageTimer.Tick += ImageTimerEnded;
-            imageTimer.Interval = TimeSpan.FromSeconds(10);
+            imageTimer.Interval = TimeSpan.FromMilliseconds(PreferenceManager.ReadIntervalSetting());
             if (preview) {
                 ShowError("When fullscreen, control volume with up/down arrows or mouse wheel.");
             }
@@ -91,9 +96,41 @@ namespace VideoScreensaver {
             }
         }
 
+        private bool IsMedia(String fileName)
+        {
+            foreach (var acceptedExtension in acceptedExtensionsImages)
+            {
+                if (fileName.ToLower().EndsWith(acceptedExtension))
+                    return true;
+            }
+            foreach (var acceptedExtension in acceptedExtensionsVideos)
+            {
+                if (fileName.ToLower().EndsWith(acceptedExtension))
+                    return true;
+            }
+            return false;
+        }
+
         private void OnLoaded(object sender, RoutedEventArgs e) {
             videoPaths = PreferenceManager.ReadVideoSettings();
-            if (videoPaths.Count == 0) {
+            mediaFiles = new List<string>();
+            algorithm = PreferenceManager.ReadAlgorithmSetting();
+            foreach (string videoPath in videoPaths)
+            {
+                var files = Directory.GetFiles(videoPath);
+                var media = from String f in files
+                    where IsMedia(f)
+                    select f;
+                foreach (string s in media)
+                {
+                    mediaFiles.Add(System.IO.Path.Combine(videoPath, s));
+                }
+            }
+            if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
+            {
+                mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
+            }
+            if (videoPaths.Count == 0 || mediaFiles.Count == 0) {
                 ShowError("This screensaver needs to be configured before any video is displayed.");
             } else
             {
@@ -103,11 +140,20 @@ namespace VideoScreensaver {
 
         private void NextMediaItem()
         {
-			currentItem = new Random().Next(videoPaths.Count);
-
-            FileInfo fi = new FileInfo(videoPaths[currentItem]);
-            if (fi.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                fi.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase))
+            switch (algorithm)
+            {
+                case PreferenceManager.ALGORITHM_SEQUENTIAL:
+                case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
+                    currentItem++;
+                    if (currentItem >= mediaFiles.Count)
+                        currentItem = 0;
+                    break;
+                case PreferenceManager.ALGORITHM_RANDOM:
+                    currentItem = new Random().Next(mediaFiles.Count);
+                    break;
+            }
+            FileInfo fi = new FileInfo(mediaFiles[currentItem]);
+            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower()))
             {
                 LoadImage(fi.FullName);
             }
