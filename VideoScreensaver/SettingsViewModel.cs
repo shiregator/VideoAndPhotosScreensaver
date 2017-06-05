@@ -52,7 +52,7 @@ namespace VideoScreensaver
                 _mediaPaths.Add(item);
             }
 
-            Volume = (int)(PreferenceManager.ReadVolumeSetting() / 1000);
+            Volume = (int)(PreferenceManager.ReadVolumeSetting() * 100);
             NextMediaAlgorithm = PreferenceManager.ReadAlgorithmSetting();
         }
 

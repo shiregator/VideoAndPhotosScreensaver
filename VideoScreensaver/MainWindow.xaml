@@ -9,5 +9,6 @@
         <Image Name="FullScreenImage"></Image>
         <MediaElement Margin="0" Name="FullScreenMedia" Volume="1" MediaEnded="MediaEnded" LoadedBehavior="Manual" />
         <TextBlock Name="ErrorText" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" />
+        <TextBlock Name="Overlay" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" HorizontalAlignment="Right" Margin="10"/>
     </Grid>
 </Window>

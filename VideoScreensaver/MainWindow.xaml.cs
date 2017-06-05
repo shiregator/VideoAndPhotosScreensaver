@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Cache;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,11 +24,12 @@ namespace VideoScreensaver {
         private bool preview;
         private Point? lastMousePosition = null;  // Workaround for "MouseMove always fires when maximized" bug.
         private int currentItem = -1;
-        private List<String> videoPaths;
+        private List<String> mediaPaths;
         private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
         private List<String> acceptedExtensionsImages = new List<string>() {".jpg", ".png", ".bmp", ".gif"};
-        private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv" };
+        private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv", ".mp4" };
+        private List<int> lastMedia;
         private int algorithm;
         private double volume {
             get { return FullScreenMedia.Volume; }
@@ -46,6 +49,25 @@ namespace VideoScreensaver {
             if (preview) {
                 ShowError("When fullscreen, control volume with up/down arrows or mouse wheel.");
             }
+            FullScreenMedia.MediaOpened += (sender, args) =>
+            {
+                if (FullScreenMedia.Source != null)
+                Overlay.Text = FullScreenMedia.Source.AbsolutePath + "\n" +
+                               FullScreenMedia.NaturalVideoWidth + "x" + FullScreenMedia.NaturalVideoHeight + "\n" +
+                               (FullScreenMedia.NaturalDuration.HasTimeSpan
+                                   ? FullScreenMedia.NaturalDuration.TimeSpan.ToString()
+                                   : "");
+            };
+        }
+
+        //dirty trick to check if mediaelement is playing or paused
+        private MediaState GetMediaState(MediaElement myMedia)
+        {
+            FieldInfo hlp = typeof(MediaElement).GetField("_helper", BindingFlags.NonPublic | BindingFlags.Instance);
+            object helperObject = hlp.GetValue(myMedia);
+            FieldInfo stateField = helperObject.GetType().GetField("_currentState", BindingFlags.NonPublic | BindingFlags.Instance);
+            MediaState state = (MediaState)stateField.GetValue(helperObject);
+            return state;
         }
 
         private void ScrKeyDown(object sender, KeyEventArgs e) {
@@ -66,9 +88,56 @@ namespace VideoScreensaver {
 					imageTimer.Stop();
 					NextMediaItem();
 					break;
+                case Key.Left:
+                    imageTimer.Stop();
+                    PrevMediaItem();
+                    break;
+                case Key.P:
+                    if (FullScreenImage.Visibility == Visibility.Visible)
+                        if (imageTimer.IsEnabled) imageTimer.Stop(); else imageTimer.Start();
+                    else 
+                        if (GetMediaState(FullScreenMedia) == MediaState.Play) FullScreenMedia.Pause(); else FullScreenMedia.Play();
+                    break;
+                case Key.Delete:
+                    imageTimer.Stop();
+                    PromtDeleteCurrentMedia();
+                    break;
+                case Key.I:
+                    Overlay.Visibility = Overlay.Visibility == Visibility.Visible
+                        ? Visibility.Collapsed
+                        : Visibility.Visible;
+                    break;
                 default:
                     EndFullScreensaver();
                     break;
+            }
+        }
+
+        private void PromtDeleteCurrentMedia()
+        {
+            if (
+                MessageBox.Show(this, "You want to delete " + mediaFiles[currentItem] + " file?", "Delete file?",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                String fileToDelete = mediaFiles[currentItem];
+                mediaFiles.RemoveAt(currentItem);
+                if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
+                {
+                    lastMedia.RemoveAt(lastMedia.Count - 1);
+                }
+                PrevMediaItem();
+                try
+                {
+                    File.Delete(fileToDelete);
+                }
+                catch
+                {
+                    ;//can not delete file
+                }
+            }
+            else
+            {
+                imageTimer.Start();
             }
         }
 
@@ -111,26 +180,40 @@ namespace VideoScreensaver {
             return false;
         }
 
+        private void AddMediaFilesFromDirRecursive(String path)
+        {
+            var files = Directory.GetFiles(path);
+            var media = from String f in files
+                        where IsMedia(f)
+                        select f;
+            foreach (string s in media)
+            {
+                mediaFiles.Add(System.IO.Path.Combine(path, s));
+            }
+            var dirs = Directory.GetDirectories(path);
+            foreach (var dir in dirs)
+            {
+                AddMediaFilesFromDirRecursive(dir);
+            }
+        }
+
         private void OnLoaded(object sender, RoutedEventArgs e) {
-            videoPaths = PreferenceManager.ReadVideoSettings();
+            mediaPaths = PreferenceManager.ReadVideoSettings();
             mediaFiles = new List<string>();
             algorithm = PreferenceManager.ReadAlgorithmSetting();
-            foreach (string videoPath in videoPaths)
+            foreach (string videoPath in mediaPaths)
             {
-                var files = Directory.GetFiles(videoPath);
-                var media = from String f in files
-                    where IsMedia(f)
-                    select f;
-                foreach (string s in media)
-                {
-                    mediaFiles.Add(System.IO.Path.Combine(videoPath, s));
-                }
+                AddMediaFilesFromDirRecursive(videoPath);
             }
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
             {
                 mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
             }
-            if (videoPaths.Count == 0 || mediaFiles.Count == 0) {
+            if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
+            {
+                lastMedia = new List<int>();
+            }
+            if (mediaPaths.Count == 0 || mediaFiles.Count == 0) {
                 ShowError("This screensaver needs to be configured before any video is displayed.");
             } else
             {
@@ -138,19 +221,35 @@ namespace VideoScreensaver {
             }
         }
 
-        private void NextMediaItem()
+        private void PrevMediaItem()
         {
+            FullScreenMedia.Stop();
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
-                    currentItem++;
-                    if (currentItem >= mediaFiles.Count)
-                        currentItem = 0;
+                    currentItem--;
+                    if (currentItem < 0)
+                        currentItem = mediaFiles.Count - 1;
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
-                    currentItem = new Random().Next(mediaFiles.Count);
+                    if (lastMedia.Count >= 2)
+                    {
+                        currentItem = lastMedia[lastMedia.Count - 2];
+                        lastMedia.RemoveAt(lastMedia.Count - 1);
+                    }
+                    else
+                    {
+                        imageTimer.Start();
+                    }
                     break;
+            }
+            if (mediaFiles.Count == 0)
+            {
+                ShowError("There are no files to show!");
+                FullScreenImage.Source = null;
+                FullScreenMedia.Source = null;
+                return;
             }
             FileInfo fi = new FileInfo(mediaFiles[currentItem]);
             if (acceptedExtensionsImages.Contains(fi.Extension.ToLower()))
@@ -163,11 +262,56 @@ namespace VideoScreensaver {
             }
         }
 
+        private void NextMediaItem()
+        {
+            FullScreenMedia.Stop();
+            switch (algorithm)
+            {
+                case PreferenceManager.ALGORITHM_SEQUENTIAL:
+                case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
+                    currentItem++;
+                    if (currentItem >= mediaFiles.Count)
+                        currentItem = 0;
+                    break;
+                case PreferenceManager.ALGORITHM_RANDOM:
+                    currentItem = new Random().Next(mediaFiles.Count);
+                    lastMedia.Add(currentItem);
+                    if (lastMedia.Count > 100)
+                        lastMedia.RemoveAt(0);
+                    break;
+            }
+            if (mediaFiles.Count == 0)
+            {
+                ShowError("There are no files to show!");
+                FullScreenImage.Source = null;
+                FullScreenMedia.Stop();
+                FullScreenMedia.Source = null;
+                return;
+            }
+            FileInfo fi = new FileInfo(mediaFiles[currentItem]);
+            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower()))
+            {
+                LoadImage(fi.FullName);
+            }
+            else
+            {
+                LoadMedia(fi.FullName);
+            }
+        }
+
+
         private void LoadImage(string filename)
         {
             FullScreenImage.Visibility = Visibility.Visible;
             FullScreenMedia.Visibility = Visibility.Collapsed;
-            FullScreenImage.Source = new BitmapImage(new Uri(filename));
+            var img = new BitmapImage();
+            img.BeginInit();
+            img.CacheOption = BitmapCacheOption.OnLoad;
+            img.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            img.UriSource = new Uri(filename);
+            img.EndInit();
+            FullScreenImage.Source = img;
+            Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height;
             imageTimer.Start();
         }
 
