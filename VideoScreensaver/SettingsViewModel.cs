@@ -7,9 +7,10 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Forms;
 using Microsoft.Win32;
 using SettingsViewModel;
-using Microsoft.WindowsAPICodePack.Dialogs;
+using Application = System.Windows.Application;
 
 namespace VideoScreensaver
 {
@@ -28,14 +29,11 @@ namespace VideoScreensaver
             _addCommand = new CommandHandler(
                 o =>
                 {
-                    var dial = new CommonOpenFileDialog();
-                    dial.Multiselect = false;
-                    dial.IsFolderPicker = true;
+                    var dial = new FolderBrowserDialog();
                     if (
-                        dial.ShowDialog(Application.Current.Windows.OfType<Window>().SingleOrDefault(x => x.IsActive)) ==
-                        CommonFileDialogResult.Ok)
+                        dial.ShowDialog(null) == DialogResult.OK)
                     {
-                        _mediaPaths.Add(dial.FileName);
+                        _mediaPaths.Add(dial.SelectedPath);
                         PreferenceManager.WriteVideoSettings(_mediaPaths.ToList());
                     }}, 
                 o => true);

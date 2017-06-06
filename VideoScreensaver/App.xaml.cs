@@ -36,30 +36,7 @@ namespace VideoScreensaver
 
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
-        public App()
-        {
-            AppDomain.CurrentDomain.AssemblyResolve += (snd, args) =>
-            {
-
-                string resourceName = "VideoScreensaver." +
-
-                   new AssemblyName(args.Name).Name + ".dll";
-
-                using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
-                {
-                    if (stream == null)
-                        return null;
-                    Byte[] assemblyData = new Byte[stream.Length];
-
-                    stream.Read(assemblyData, 0, assemblyData.Length);
-
-                    return Assembly.Load(assemblyData);
-
-                }
-
-            };
-        }
+        
 
         private void OnStartup(object sender, StartupEventArgs e) {
             if (e.Args.Length > 0) {

@@ -123,11 +123,20 @@ namespace VideoScreensaver {
             {
                 String fileToDelete = mediaFiles[currentItem];
                 // remove filename from list so we don`t use it again
-                mediaFiles.RemoveAt(currentItem);
+                if (currentItem < 0) currentItem = mediaFiles.Count - 1;
                 if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
                 {
                     lastMedia.RemoveAt(lastMedia.Count - 1);
                 }
+                //shift all indexes quickfix will change later
+                for (int i = 0; i < lastMedia.Count; i++)
+                {
+                    if (lastMedia[i]>currentItem)
+                        lastMedia[i]--;
+                }
+                mediaFiles.RemoveAt(currentItem);
+                currentItem--;
+
                 PrevMediaItem();
                 try
                 {
@@ -215,7 +224,6 @@ namespace VideoScreensaver {
             {
                 AddMediaFilesFromDirRecursive(videoPath);
             }
-
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
             {
                 // shuffle list
