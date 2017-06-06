@@ -15,7 +15,7 @@ namespace VideoScreensaver {
         public const string VIDEO_PREFS_FILE = "Media";
         public const string VOLUME_PREFS_FILE = "Volume";
         public const string INTERVAL_PREFS_FILE = "Interval";
-        public const string ALGORITHM_PREFS_FILE = "Alghoritm";
+        public const string ALGORITHM_PREFS_FILE = "Algorithm";
 
         public const int ALGORITHM_SEQUENTIAL = 0;
         public const int ALGORITHM_RANDOM = 1;

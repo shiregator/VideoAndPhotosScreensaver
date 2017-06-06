@@ -23,6 +23,7 @@ namespace VideoScreensaver
 
         public SettingsViewModel()
         {
+            // command that show folder selection dialog and add selected folder to list
             _addCommand = new CommandHandler(
                 o =>
                 {
@@ -37,6 +38,7 @@ namespace VideoScreensaver
                         PreferenceManager.WriteVideoSettings(_mediaPaths.ToList());
                     }}, 
                 o => true);
+            // command that delete selected folder from list
             _delCommand = new CommandHandler(o =>
             {
                 if (!String.IsNullOrWhiteSpace(_selectedRow) && _mediaPaths.Contains(_selectedRow))
@@ -46,6 +48,7 @@ namespace VideoScreensaver
                 }
             }, o => !String.IsNullOrWhiteSpace(_selectedRow));
 
+            // list of folders
             var list = PreferenceManager.ReadVideoSettings();
             foreach (var item in list)
             {

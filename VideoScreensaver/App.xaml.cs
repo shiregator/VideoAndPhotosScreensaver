@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Input;
+using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Application = System.Windows.Application;
+using Cursors = System.Windows.Input.Cursors;
 
 namespace VideoScreensaver
 {
@@ -48,7 +50,38 @@ namespace VideoScreensaver
                         return;
                 }
             }
-            new MainWindow(false).Show();
+            
+            foreach (var screen in Screen.AllScreens)
+            {
+                if (screen.Primary) // on Primary screen we show our screensaver
+                {
+                    var mainWindow = new MainWindow(false);
+                    mainWindow.WindowStyle = WindowStyle.None;
+                    mainWindow.ResizeMode = ResizeMode.NoResize;
+                    mainWindow.ShowInTaskbar = false;
+                    mainWindow.Left = screen.WorkingArea.Left;
+                    mainWindow.Top = screen.WorkingArea.Top;
+                    mainWindow.Width = screen.WorkingArea.Width;
+                    mainWindow.Height = screen.WorkingArea.Height;
+                    mainWindow.Topmost = true;
+                    mainWindow.WindowState = WindowState.Maximized;
+                    mainWindow.Show();
+                }
+                else // on other screens we show black screen
+                {
+                    var blackWindow = new Window();
+                    blackWindow.WindowStyle = WindowStyle.None;
+                    blackWindow.ResizeMode = ResizeMode.NoResize;
+                    blackWindow.ShowInTaskbar = false;
+                    blackWindow.Left = screen.WorkingArea.Left;
+                    blackWindow.Top = screen.WorkingArea.Top;
+                    blackWindow.Width = screen.WorkingArea.Width;
+                    blackWindow.Height = screen.WorkingArea.Height;
+                    blackWindow.Topmost = true;
+                    blackWindow.Background = new SolidColorBrush(Colors.Black);
+                    blackWindow.Show();
+                }
+            }
         }
 
         private void ShowInParent(IntPtr parentHwnd) {

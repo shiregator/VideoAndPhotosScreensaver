@@ -49,6 +49,7 @@ namespace VideoScreensaver {
             if (preview) {
                 ShowError("When fullscreen, control volume with up/down arrows or mouse wheel.");
             }
+            // setting overlay text when media is opened. if you will try to set it in LoadMedia you will get nothing because media is not loaded yet
             FullScreenMedia.MediaOpened += (sender, args) =>
             {
                 if (FullScreenMedia.Source != null)
@@ -100,6 +101,7 @@ namespace VideoScreensaver {
                     break;
                 case Key.Delete:
                     imageTimer.Stop();
+                    FullScreenMedia.Pause();
                     PromtDeleteCurrentMedia();
                     break;
                 case Key.I:
@@ -120,6 +122,7 @@ namespace VideoScreensaver {
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 String fileToDelete = mediaFiles[currentItem];
+                // remove filename from list so we don`t use it again
                 mediaFiles.RemoveAt(currentItem);
                 if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
                 {
@@ -137,7 +140,10 @@ namespace VideoScreensaver {
             }
             else
             {
-                imageTimer.Start();
+                if (FullScreenImage.Visibility == Visibility.Visible)
+                    imageTimer.Start(); // start timer because we stoped it on Delete key press
+                if (FullScreenMedia.Visibility == Visibility.Visible)
+                    FullScreenMedia.Play(); // start again because we paused it on Delete key press
             }
         }
 
@@ -161,7 +167,8 @@ namespace VideoScreensaver {
         // End the screensaver only if running in full screen. No-op in preview mode.
         private void EndFullScreensaver() {
             if (!preview) {
-                Close();
+                Application.Current.Shutdown();
+                //Close();
             }
         }
 
@@ -183,13 +190,16 @@ namespace VideoScreensaver {
         private void AddMediaFilesFromDirRecursive(String path)
         {
             var files = Directory.GetFiles(path);
+            // get all media files using linq
             var media = from String f in files
                         where IsMedia(f)
                         select f;
+            // add all files to media list
             foreach (string s in media)
             {
                 mediaFiles.Add(System.IO.Path.Combine(path, s));
             }
+            // go through all subfolders
             var dirs = Directory.GetDirectories(path);
             foreach (var dir in dirs)
             {
@@ -205,14 +215,17 @@ namespace VideoScreensaver {
             {
                 AddMediaFilesFromDirRecursive(videoPath);
             }
+
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
             {
+                // shuffle list
                 mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
             }
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
             {
                 lastMedia = new List<int>();
             }
+
             if (mediaPaths.Count == 0 || mediaFiles.Count == 0) {
                 ShowError("This screensaver needs to be configured before any video is displayed.");
             } else
@@ -248,11 +261,13 @@ namespace VideoScreensaver {
             {
                 ShowError("There are no files to show!");
                 FullScreenImage.Source = null;
+                FullScreenMedia.Stop();
                 FullScreenMedia.Source = null;
                 return;
             }
+
             FileInfo fi = new FileInfo(mediaFiles[currentItem]);
-            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower()))
+            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // check if it image or video
             {
                 LoadImage(fi.FullName);
             }
@@ -288,8 +303,9 @@ namespace VideoScreensaver {
                 FullScreenMedia.Source = null;
                 return;
             }
+
             FileInfo fi = new FileInfo(mediaFiles[currentItem]);
-            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower()))
+            if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // check if it image or video
             {
                 LoadImage(fi.FullName);
             }
@@ -307,11 +323,11 @@ namespace VideoScreensaver {
             var img = new BitmapImage();
             img.BeginInit();
             img.CacheOption = BitmapCacheOption.OnLoad;
-            img.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            img.CreateOptions = BitmapCreateOptions.IgnoreImageCache; // workaround for blocked images. if we will not set this option we can not delete image
             img.UriSource = new Uri(filename);
             img.EndInit();
             FullScreenImage.Source = img;
-            Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height;
+            Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height; // setting overlay for image
             imageTimer.Start();
         }
 
