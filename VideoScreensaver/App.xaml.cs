@@ -81,8 +81,9 @@ namespace VideoScreensaver
                     blackWindow.Height = screen.WorkingArea.Height;
                     blackWindow.Topmost = true;
                     blackWindow.Background = new SolidColorBrush(Colors.Black);
-                    blackWindow.Show();
-                    blackWindow.WindowState = WindowState.Maximized;
+// Commented out to workaround keys not working
+//                    blackWindow.Show();
+//                    blackWindow.WindowState = WindowState.Maximized;
                 }
             }
         }
