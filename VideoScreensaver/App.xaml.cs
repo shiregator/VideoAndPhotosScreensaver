@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
@@ -36,7 +39,11 @@ namespace VideoScreensaver
 
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool IsWindow(IntPtr hWnd);
+
 
         private void OnStartup(object sender, StartupEventArgs e) {
             if (e.Args.Length > 0) {
@@ -55,21 +62,7 @@ namespace VideoScreensaver
             
             foreach (var screen in Screen.AllScreens)
             {
-                if (screen.Primary) // on Primary screen we show our screensaver
-                {
-                    var mainWindow = new MainWindow(false);
-                    mainWindow.WindowStyle = WindowStyle.None;
-                    mainWindow.ResizeMode = ResizeMode.NoResize;
-                    mainWindow.ShowInTaskbar = false;
-                    mainWindow.Left = screen.WorkingArea.Left;
-                    mainWindow.Top = screen.WorkingArea.Top;
-                    mainWindow.Width = screen.WorkingArea.Width;
-                    mainWindow.Height = screen.WorkingArea.Height;
-                    mainWindow.Topmost = true;
-                    mainWindow.WindowState = WindowState.Maximized;
-                    mainWindow.Show();
-                }
-                else // on other screens we show black screen
+                if (!screen.Primary)  // on other screens we show black screen
                 {
                     var blackWindow = new Window();
                     blackWindow.WindowStyle = WindowStyle.None;
@@ -81,14 +74,26 @@ namespace VideoScreensaver
                     blackWindow.Height = screen.WorkingArea.Height;
                     blackWindow.Topmost = true;
                     blackWindow.Background = new SolidColorBrush(Colors.Black);
-// Commented out to workaround keys not working
-//                    blackWindow.Show();
-//                    blackWindow.WindowState = WindowState.Maximized;
+// Commented out to workaround keys not working   FIXED
+                    blackWindow.Show();
+                    blackWindow.WindowState = WindowState.Maximized;
                 }
             }
+            var prscreen = Screen.PrimaryScreen;
+            var mainWindow = new MainWindow(false); // on Primary screen we show our screensaver
+            mainWindow.WindowStyle = WindowStyle.None;
+            mainWindow.ResizeMode = ResizeMode.NoResize;
+            mainWindow.ShowInTaskbar = false;
+            mainWindow.Left = prscreen.WorkingArea.Left;
+            mainWindow.Top = prscreen.WorkingArea.Top;
+            mainWindow.Width = prscreen.WorkingArea.Width;
+            mainWindow.Height = prscreen.WorkingArea.Height;
+            mainWindow.Topmost = true;
+            mainWindow.WindowState = WindowState.Maximized;
+            mainWindow.Show();
         }
 
-        private void ShowInParent(IntPtr parentHwnd) {
+        private async void  ShowInParent(IntPtr parentHwnd) {
             MainWindow previewContent = new MainWindow(true);
             WindowInteropHelper windowHelper = new WindowInteropHelper(previewContent);
             windowHelper.Owner = parentHwnd;
@@ -106,11 +111,25 @@ namespace VideoScreensaver
 
             IntPtr currentFocus = GetForegroundWindow();
             previewContent.Show();
+
             SetParent(windowHelper.Handle, parentHwnd);
             SetWindowLong(windowHelper.Handle, -16, new IntPtr(0x10000000 | 0x40000000 | 0x02000000));
+
             previewContent.Width = parentRect.right - parentRect.left;
             previewContent.Height = parentRect.bottom - parentRect.top;
             SetForegroundWindow(currentFocus);
+
+            // check if preview window is still exists
+            await Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    if (!IsWindow(parentHwnd)) return;
+                    Task.Delay(1000).Wait();
+                }
+            });
+            // shutdown after preview window closed
+            Shutdown();
         }
 
         private void ConfigureScreensaver() {

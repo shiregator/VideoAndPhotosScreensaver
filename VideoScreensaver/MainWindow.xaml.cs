@@ -2,18 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Cache;
 using System.Reflection;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace VideoScreensaver {
@@ -29,7 +22,7 @@ namespace VideoScreensaver {
         private DispatcherTimer imageTimer;
         private List<String> acceptedExtensionsImages = new List<string>() {".jpg", ".png", ".bmp", ".gif"};
         private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv", ".mp4" };
-        private List<int> lastMedia;
+        private List<String> lastMedia; // store last 100 of random files
         private int algorithm;
         private double volume {
             get { return FullScreenMedia.Volume; }
@@ -94,10 +87,7 @@ namespace VideoScreensaver {
                     PrevMediaItem();
                     break;
                 case Key.P:
-                    if (FullScreenImage.Visibility == Visibility.Visible)
-                        if (imageTimer.IsEnabled) imageTimer.Stop(); else imageTimer.Start();
-                    else 
-                        if (GetMediaState(FullScreenMedia) == MediaState.Play) FullScreenMedia.Pause(); else FullScreenMedia.Play();
+                    Pause();
                     break;
                 case Key.Delete:
                     imageTimer.Stop();
@@ -115,6 +105,29 @@ namespace VideoScreensaver {
             }
         }
 
+        private void Pause()
+        {
+            if (FullScreenImage.Visibility == Visibility.Visible)
+            {
+                if (imageTimer.IsEnabled)
+                {
+                    imageTimer.Stop();
+                } else {
+                    HideError();
+                    imageTimer.Start();
+                }
+            } else
+            {
+                if (GetMediaState(FullScreenMedia) == MediaState.Play)
+                {
+                    FullScreenMedia.Pause();
+                } else {
+                    HideError();
+                    FullScreenMedia.Play();
+                }
+            }
+        }
+
         private void PromtDeleteCurrentMedia()
         {
             if (
@@ -123,19 +136,12 @@ namespace VideoScreensaver {
             {
                 String fileToDelete = mediaFiles[currentItem];
                 // remove filename from list so we don`t use it again
-                if (currentItem < 0) currentItem = mediaFiles.Count - 1;
                 if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
                 {
-                    lastMedia.RemoveAt(lastMedia.Count - 1);
-                }
-                //shift all indexes quickfix will change later
-                for (int i = 0; i < lastMedia.Count; i++)
-                {
-                    if (lastMedia[i]>currentItem)
-                        lastMedia[i]--;
+                    lastMedia.Remove(fileToDelete);
                 }
                 mediaFiles.RemoveAt(currentItem);
-                currentItem--;
+                
 
                 PrevMediaItem();
                 try
@@ -144,7 +150,10 @@ namespace VideoScreensaver {
                 }
                 catch
                 {
-                    ;//can not delete file
+                    Pause(); //pause screensaver
+                    MessageBox.Show(this, "Can not delete " + fileToDelete + " ! Please check it and delete manualy!",
+                        "Can not delete file!", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Pause(); //unpause
                 }
             }
             else
@@ -231,7 +240,7 @@ namespace VideoScreensaver {
             }
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
             {
-                lastMedia = new List<int>();
+                lastMedia = new List<String>();
             }
 
             if (mediaPaths.Count == 0 || mediaFiles.Count == 0) {
@@ -245,6 +254,7 @@ namespace VideoScreensaver {
         private void PrevMediaItem()
         {
             FullScreenMedia.Stop();
+            FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
@@ -256,7 +266,7 @@ namespace VideoScreensaver {
                 case PreferenceManager.ALGORITHM_RANDOM:
                     if (lastMedia.Count >= 2)
                     {
-                        currentItem = lastMedia[lastMedia.Count - 2];
+                        currentItem = mediaFiles.IndexOf(lastMedia[lastMedia.Count - 2]);
                         lastMedia.RemoveAt(lastMedia.Count - 1);
                     }
                     else
@@ -288,6 +298,7 @@ namespace VideoScreensaver {
         private void NextMediaItem()
         {
             FullScreenMedia.Stop();
+            FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
@@ -298,7 +309,7 @@ namespace VideoScreensaver {
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
                     currentItem = new Random().Next(mediaFiles.Count);
-                    lastMedia.Add(currentItem);
+                    lastMedia.Add(mediaFiles[currentItem]);
                     if (lastMedia.Count > 100)
                         lastMedia.RemoveAt(0);
                     break;
@@ -328,15 +339,24 @@ namespace VideoScreensaver {
         {
             FullScreenImage.Visibility = Visibility.Visible;
             FullScreenMedia.Visibility = Visibility.Collapsed;
-            var img = new BitmapImage();
-            img.BeginInit();
-            img.CacheOption = BitmapCacheOption.OnLoad;
-            img.CreateOptions = BitmapCreateOptions.IgnoreImageCache; // workaround for blocked images. if we will not set this option we can not delete image
-            img.UriSource = new Uri(filename);
-            img.EndInit();
-            FullScreenImage.Source = img;
-            Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height; // setting overlay for image
-            imageTimer.Start();
+            try
+            {
+                var img = new BitmapImage();
+                img.BeginInit();
+                img.CacheOption = BitmapCacheOption.OnLoad;
+                img.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                // workaround for blocked images. if we will not set this option we can not delete image
+                img.UriSource = new Uri(filename);
+                img.EndInit();
+                FullScreenImage.Source = img;
+                Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height; // setting overlay for image
+                imageTimer.Start();
+            }
+            catch
+            {
+                FullScreenImage.Source = null;
+                ShowError("Can not load " + filename + " ! Screensaver paused, press P to unpause.");
+            }
         }
 
         private void LoadMedia(string filename)
@@ -353,6 +373,11 @@ namespace VideoScreensaver {
             if (preview) {
                 ErrorText.FontSize = 12;
             }
+        }
+
+        private void HideError()
+        {
+            ErrorText.Visibility = Visibility.Collapsed;
         }
 
         private void MediaEnded(object sender, RoutedEventArgs e) {
