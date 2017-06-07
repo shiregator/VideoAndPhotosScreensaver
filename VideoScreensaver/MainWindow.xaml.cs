@@ -408,7 +408,7 @@ namespace VideoScreensaver {
                         {
                             switch (propertyItem.Id)
                             {
-                                case 0x9003: // date taken
+                                case 0x9003: // Date taken
                                     DateTime dt;
                                     if (DateTime.TryParseExact(
                                         Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'), "yyyy:dd:MM HH:mm:ss",
@@ -420,8 +420,9 @@ namespace VideoScreensaver {
                                                     Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'));
                                     break;
                                 case 0x010E: // Description
-                                    info.AppendLine("Description: " +
-                                                    Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'));
+                                    var descr = Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0');
+                                    if (!String.IsNullOrWhiteSpace(descr))
+                                        info.AppendLine("Description: " + descr);
                                     break;
                                 case 0x9286: // User comment
                                     string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
