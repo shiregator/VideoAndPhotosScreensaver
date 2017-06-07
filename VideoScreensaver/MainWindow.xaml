@@ -8,7 +8,21 @@
         </Grid.ColumnDefinitions>
         <Image Name="FullScreenImage"></Image>
         <MediaElement Margin="0" Name="FullScreenMedia" Volume="1" MediaEnded="MediaEnded" LoadedBehavior="Manual" />
-        <TextBlock Name="ErrorText" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" />
-        <TextBlock Name="Overlay" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" HorizontalAlignment="Right" Margin="10"/>
+        <TextBlock Name="ErrorText" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" Margin="10">
+            <TextBlock.Effect>
+                <DropShadowEffect ShadowDepth="0"
+                    Color="Black"
+                    Opacity="1"
+                    BlurRadius="5"/>
+            </TextBlock.Effect>
+        </TextBlock>
+        <TextBlock Name="Overlay" FontSize="24" Text="" TextWrapping="Wrap" Foreground="White" Visibility="Hidden" HorizontalAlignment="Right" Margin="10">
+            <TextBlock.Effect>
+                <DropShadowEffect ShadowDepth="0"
+                    Color="Black"
+                    Opacity="1"
+                    BlurRadius="5"/>
+            </TextBlock.Effect>
+        </TextBlock>
     </Grid>
 </Window>

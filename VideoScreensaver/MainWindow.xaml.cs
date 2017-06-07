@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -20,10 +22,12 @@ namespace VideoScreensaver {
         private List<String> mediaPaths;
         private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
+        private DispatcherTimer infoShowingTimer;
         private List<String> acceptedExtensionsImages = new List<string>() {".jpg", ".png", ".bmp", ".gif"};
         private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv", ".mp4" };
         private List<String> lastMedia; // store last 100 of random files
         private int algorithm;
+        private int imageRotationAngle;
         private double volume {
             get { return FullScreenMedia.Volume; }
             set {
@@ -39,6 +43,9 @@ namespace VideoScreensaver {
             imageTimer = new DispatcherTimer();
             imageTimer.Tick += ImageTimerEnded;
             imageTimer.Interval = TimeSpan.FromMilliseconds(PreferenceManager.ReadIntervalSetting());
+            infoShowingTimer = new DispatcherTimer();
+            infoShowingTimer.Tick += (sender, args) => HideError();
+            infoShowingTimer.Interval = TimeSpan.FromSeconds(5);
             if (preview) {
                 ShowError("When fullscreen, control volume with up/down arrows or mouse wheel.");
             }
@@ -99,10 +106,51 @@ namespace VideoScreensaver {
                         ? Visibility.Collapsed
                         : Visibility.Visible;
                     break;
+                case Key.H:
+                case Key.OemQuestion:
+                    ShowUsage();
+                    break;
+                case Key.R:
+                    RotateImage();
+                    break;
+                case Key.S:
+                    ShowInFolder();
+                    break;
                 default:
                     EndFullScreensaver();
                     break;
             }
+        }
+
+        private void ShowUsage()
+        {
+            ShowError("Usage of key shortcuts:\n " +
+                      "Up - Volume up\n " +
+                      "Down - Volume down\n " +
+                      "0 - Mute volume\n " +
+                      "Right arrow - next image/video\n " +
+                      "Left arrow - previous image/video\n " +
+                      "P - Pause/unpause\n " +
+                      "Delete - Delete current file \n " +
+                      "I - Show info overlay\n " +
+                      "H - Show this message\n " +
+                      "R - Rotate image\n " +
+                      "S - Show file in explorer");
+            infoShowingTimer.Start();
+        }
+
+
+        private void RotateImage()
+        {
+            imageRotationAngle += 90;
+            imageTimer.Stop();
+            LoadImage(mediaFiles[currentItem]);
+        }
+
+        private void ShowInFolder()
+        {
+            Process.Start("explorer", "/select, \"" + mediaFiles[currentItem] + "\"");
+            EndFullScreensaver(); // close screensaver to show opened fodlder
         }
 
         private void Pause()
@@ -185,7 +233,7 @@ namespace VideoScreensaver {
         // End the screensaver only if running in full screen. No-op in preview mode.
         private void EndFullScreensaver() {
             if (!preview) {
-                Application.Current.Shutdown();
+                Application.Current?.Shutdown();
                 //Close();
             }
         }
@@ -255,6 +303,7 @@ namespace VideoScreensaver {
         {
             FullScreenMedia.Stop();
             FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
+            imageRotationAngle = 0;
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
@@ -299,6 +348,7 @@ namespace VideoScreensaver {
         {
             FullScreenMedia.Stop();
             FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
+            imageRotationAngle = 0;
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
@@ -337,6 +387,7 @@ namespace VideoScreensaver {
 
         private void LoadImage(string filename)
         {
+            FullScreenImage.RenderTransform = null;
             FullScreenImage.Visibility = Visibility.Visible;
             FullScreenMedia.Visibility = Visibility.Collapsed;
             try
@@ -348,7 +399,13 @@ namespace VideoScreensaver {
                 // workaround for blocked images. if we will not set this option we can not delete image
                 img.UriSource = new Uri(filename);
                 img.EndInit();
-                FullScreenImage.Source = img;
+                TransformedBitmap transformBmp = new TransformedBitmap();
+                transformBmp.BeginInit();
+                transformBmp.Source = img;
+                RotateTransform transform = new RotateTransform(imageRotationAngle);
+                transformBmp.Transform = transform;
+                transformBmp.EndInit();
+                FullScreenImage.Source = transformBmp;
                 Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height; // setting overlay for image
                 imageTimer.Start();
             }
