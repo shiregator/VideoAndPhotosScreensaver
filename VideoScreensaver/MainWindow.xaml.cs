@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Image = System.Drawing.Image;
 
 namespace VideoScreensaver {
     /// <summary>
@@ -392,22 +396,69 @@ namespace VideoScreensaver {
             FullScreenMedia.Visibility = Visibility.Collapsed;
             try
             {
-                var img = new BitmapImage();
-                img.BeginInit();
-                img.CacheOption = BitmapCacheOption.OnLoad;
-                img.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                // workaround for blocked images. if we will not set this option we can not delete image
-                img.UriSource = new Uri(filename);
-                img.EndInit();
-                TransformedBitmap transformBmp = new TransformedBitmap();
-                transformBmp.BeginInit();
-                transformBmp.Source = img;
-                RotateTransform transform = new RotateTransform(imageRotationAngle);
-                transformBmp.Transform = transform;
-                transformBmp.EndInit();
-                FullScreenImage.Source = transformBmp;
-                Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height; // setting overlay for image
-                imageTimer.Start();
+                using (
+                    var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
+                        FileShare.Delete | FileShare.ReadWrite))
+                {
+                    using (Image imgForExif = Image.FromStream(imgStream, false, false))
+                    {
+                        StringBuilder info = new StringBuilder();
+                        info.AppendLine(filename + "\n" + imgForExif.Width + "x" + imgForExif.Height);
+                        foreach (var propertyItem in imgForExif.PropertyItems)
+                        {
+                            switch (propertyItem.Id)
+                            {
+                                case 0x9003: // date taken
+                                    DateTime dt;
+                                    if (DateTime.TryParseExact(
+                                        Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'), "yyyy:dd:MM HH:mm:ss",
+                                        CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
+                                        info.AppendLine("Date taken: " + dt);
+                                    break;
+                                case 0x0320: // Title
+                                    info.AppendLine("Title: " +
+                                                    Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'));
+                                    break;
+                                case 0x010E: // Description
+                                    info.AppendLine("Description: " +
+                                                    Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'));
+                                    break;
+                                case 0x9286: // User comment
+                                    string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
+                                    switch (characterCode)
+                                    {
+                                        case "UNICODE":
+                                            info.AppendLine("User comment: " +
+                                                            Encoding.Unicode.GetString(propertyItem.Value, 8,
+                                                                propertyItem.Len - 8));
+                                            break;
+                                        case "ASCII":
+                                            info.AppendLine("User comment: " +
+                                                            Encoding.ASCII.GetString(propertyItem.Value, 8,
+                                                                propertyItem.Len - 8));
+                                            break;
+                                    }
+                                    break;
+                            }
+                        }
+                        Overlay.Text = info.ToString();
+                    }
+                    var img = new BitmapImage();
+                    img.BeginInit();
+                    img.CacheOption = BitmapCacheOption.OnLoad;
+                    //img.UriSource = new Uri(filename);
+                    imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
+                    img.StreamSource = imgStream; // load image from stream instead of file
+                    img.EndInit();
+                    TransformedBitmap transformBmp = new TransformedBitmap();
+                    transformBmp.BeginInit();
+                    transformBmp.Source = img;
+                    RotateTransform transform = new RotateTransform(imageRotationAngle);
+                    transformBmp.Transform = transform;
+                    transformBmp.EndInit();
+                    FullScreenImage.Source = transformBmp;
+                    imageTimer.Start();
+                }
             }
             catch
             {
