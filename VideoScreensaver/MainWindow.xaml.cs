@@ -424,6 +424,7 @@ namespace VideoScreensaver {
                                     if (!String.IsNullOrWhiteSpace(descr))
                                         info.AppendLine("Description: " + descr);
                                     break;
+									/*
                                 case 0x9286: // User comment
                                     string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
                                     switch (characterCode)
@@ -440,6 +441,7 @@ namespace VideoScreensaver {
                                             break;
                                     }
                                     break;
+									*/
                             }
                         }
                         Overlay.Text = info.ToString();
