@@ -115,7 +115,9 @@ namespace VideoScreensaver {
                     ShowUsage();
                     break;
                 case Key.R:
-                    RotateImage();
+					FileInfo fi = new FileInfo(mediaFiles[currentItem]);
+					if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // Only rotate images
+						RotateImage();
                     break;
                 case Key.S:
                     ShowInFolder();
@@ -426,7 +428,7 @@ namespace VideoScreensaver {
                                     break;
 									/*
                                 case 0x9286: // User comment
-                                    string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
+									string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
                                     switch (characterCode)
                                     {
                                         case "UNICODE":
@@ -445,6 +447,13 @@ namespace VideoScreensaver {
                             }
                         }
                         Overlay.Text = info.ToString();
+
+						// Save rotation to file
+						if (imageRotationAngle == 90)
+						{
+							imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+							imgForExif.Save(filename);
+						}
                     }
                     var img = new BitmapImage();
                     img.BeginInit();
@@ -453,14 +462,17 @@ namespace VideoScreensaver {
                     imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
                     img.StreamSource = imgStream; // load image from stream instead of file
                     img.EndInit();
-                    TransformedBitmap transformBmp = new TransformedBitmap();
+					/*
+					TransformedBitmap transformBmp = new TransformedBitmap();
                     transformBmp.BeginInit();
                     transformBmp.Source = img;
                     RotateTransform transform = new RotateTransform(imageRotationAngle);
                     transformBmp.Transform = transform;
                     transformBmp.EndInit();
                     FullScreenImage.Source = transformBmp;
-                    imageTimer.Start();
+					*/
+					FullScreenImage.Source = img;
+					imageTimer.Start();
                 }
             }
             catch
