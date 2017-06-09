@@ -426,24 +426,9 @@ namespace VideoScreensaver {
                                     if (!String.IsNullOrWhiteSpace(descr))
                                         info.AppendLine("Description: " + descr);
                                     break;
-									/*
-                                case 0x9286: // User comment
-									string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
-                                    switch (characterCode)
-                                    {
-                                        case "UNICODE":
-                                            info.AppendLine("User comment: " +
-                                                            Encoding.Unicode.GetString(propertyItem.Value, 8,
-                                                                propertyItem.Len - 8));
-                                            break;
-                                        case "ASCII":
-                                            info.AppendLine("User comment: " +
-                                                            Encoding.ASCII.GetString(propertyItem.Value, 8,
-                                                                propertyItem.Len - 8));
-                                            break;
-                                    }
+                                case 0x9c9c: // User comment
+                                    info.AppendLine("User comment: " + Encoding.Unicode.GetString(propertyItem.Value).TrimEnd('\0'));
                                     break;
-									*/
                             }
                         }
                         Overlay.Text = info.ToString();
