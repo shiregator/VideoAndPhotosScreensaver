@@ -425,6 +425,8 @@ namespace VideoScreensaver {
                                         info.AppendLine("Description: " + descr);
                                     break;
                                 case 0x9286: // User comment
+                                    if (propertyItem.Value.Length < 8)
+                                        break; // check length before we will try to get info
                                     string characterCode = Encoding.ASCII.GetString(propertyItem.Value, 0, 8).TrimEnd('\0'); ;
                                     switch (characterCode)
                                     {
