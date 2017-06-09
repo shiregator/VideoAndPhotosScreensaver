@@ -89,10 +89,10 @@ namespace VideoScreensaver {
                 case Key.D0:
                     volume = 0;
                     break;
-				case Key.Right:
-					imageTimer.Stop();
-					NextMediaItem();
-					break;
+                case Key.Right:
+                    imageTimer.Stop();
+                    NextMediaItem();
+                    break;
                 case Key.Left:
                     imageTimer.Stop();
                     PrevMediaItem();
@@ -115,9 +115,9 @@ namespace VideoScreensaver {
                     ShowUsage();
                     break;
                 case Key.R:
-					FileInfo fi = new FileInfo(mediaFiles[currentItem]);
-					if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // Only rotate images
-						RotateImage();
+                    FileInfo fi = new FileInfo(mediaFiles[currentItem]);
+                    if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // Only rotate images
+                        RotateImage();
                     break;
                 case Key.S:
                     ShowInFolder();
@@ -433,13 +433,13 @@ namespace VideoScreensaver {
                         }
                         Overlay.Text = info.ToString();
 
-						// Save rotation to file
-						if (imageRotationAngle == 90)
-						{
-							imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-							imgForExif.Save(filename);
-						}
-                    }
+                        // Save rotation to file
+                        if (imageRotationAngle == 90)
+                        {
+                            imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                            imgForExif.Save(filename);
+                        }
+					}
                     var img = new BitmapImage();
                     img.BeginInit();
                     img.CacheOption = BitmapCacheOption.OnLoad;
@@ -447,17 +447,17 @@ namespace VideoScreensaver {
                     imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
                     img.StreamSource = imgStream; // load image from stream instead of file
                     img.EndInit();
-					/*
-					TransformedBitmap transformBmp = new TransformedBitmap();
+                    /*
+                    TransformedBitmap transformBmp = new TransformedBitmap();
                     transformBmp.BeginInit();
                     transformBmp.Source = img;
                     RotateTransform transform = new RotateTransform(imageRotationAngle);
                     transformBmp.Transform = transform;
                     transformBmp.EndInit();
                     FullScreenImage.Source = transformBmp;
-					*/
-					FullScreenImage.Source = img;
-					imageTimer.Start();
+                    */
+                    FullScreenImage.Source = img;
+                    imageTimer.Start();
                 }
             }
             catch
