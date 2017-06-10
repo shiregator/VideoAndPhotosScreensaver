@@ -402,48 +402,35 @@ namespace VideoScreensaver {
                     var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
                         FileShare.Delete | FileShare.ReadWrite))
                 {
-                    /*
-                    using (Image imgForExif = Image.FromStream(imgStream, false, false))
+                    if (imageRotationAngle != 0)
                     {
-                        StringBuilder info = new StringBuilder();
-                        info.AppendLine(filename + "\n" + imgForExif.Width + "x" + imgForExif.Height);
-                        foreach (var propertyItem in imgForExif.PropertyItems)
+                        using (Image imgForExif = Image.FromStream(imgStream, false, false))
                         {
-                            switch (propertyItem.Id)
+                            // Save rotation to file                            
+                            imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                            switch(Path.GetExtension(filename).ToLower())
                             {
-                                case 0x9003: // Date taken
-                                    DateTime dt;
-                                    if (DateTime.TryParseExact(
-                                        Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'), "yyyy:dd:MM HH:mm:ss",
-                                        CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
-                                        info.AppendLine("Date taken: " + dt);
+                                case ".jpg":
+                                    imgForExif.Save(filename, ImageFormat.Jpeg);
                                     break;
-                                case 0x0320: // Title
-                                    info.AppendLine("Title: " +
-                                                    Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0'));
+                                case ".png":
+                                    imgForExif.Save(filename, ImageFormat.Png);
                                     break;
-                                case 0x010E: // Description
-                                    var descr = Encoding.UTF8.GetString(propertyItem.Value).TrimEnd('\0');
-                                    if (!String.IsNullOrWhiteSpace(descr))
-                                        info.AppendLine("Description: " + descr);
+                                case ".bmp":
+                                    imgForExif.Save(filename, ImageFormat.Bmp);
                                     break;
-                                case 0x9c9c: // User comment
-                                    info.AppendLine("User comment: " + Encoding.Unicode.GetString(propertyItem.Value).TrimEnd('\0'));
+                                case ".gif":
+                                    imgForExif.Save(filename, ImageFormat.Gif);
                                     break;
                             }
                         }
-                        Overlay.Text = info.ToString();
+                        imageRotationAngle = 0;
+                    }
 
-                        // Save rotation to file
-                        if (imageRotationAngle == 90)
-                        {
-                            imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-                            imgForExif.Save(filename);
-                        }
-					}*/
                     var img = new BitmapImage();
                     img.BeginInit();
                     img.CacheOption = BitmapCacheOption.OnLoad;
+
                     //img.UriSource = new Uri(filename);
                     imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
                     img.StreamSource = imgStream; // load image from stream instead of file
@@ -462,11 +449,11 @@ namespace VideoScreensaver {
 
                     //********* NEW EXIF CODE **************
                     imgStream.Seek(0, SeekOrigin.Begin);
-                    if (filename.ToLower().EndsWith("jpg"))
+                    if (Path.GetExtension(filename).ToLower() == ".jpg") // load exif only for jpg
                     {
                         StringBuilder info = new StringBuilder();
                         info.AppendLine(filename + "\n" + (int)img.Width + "x" + (int)img.Height);
-                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.IgnoreImageCache | BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
                         var bitmapFrame = decoder.Frames[0];
                         if (bitmapFrame != null)
                         {
@@ -489,7 +476,7 @@ namespace VideoScreensaver {
                                 {
                                     info.AppendLine("User comment: " + metaData.Comment);
                                 }
-                            }                            
+                            }
                         }
                         Overlay.Text = info.ToString();
                     }
