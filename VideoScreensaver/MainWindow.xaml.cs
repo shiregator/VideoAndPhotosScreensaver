@@ -402,6 +402,7 @@ namespace VideoScreensaver {
                     var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
                         FileShare.Delete | FileShare.ReadWrite))
                 {
+                    /*
                     using (Image imgForExif = Image.FromStream(imgStream, false, false))
                     {
                         StringBuilder info = new StringBuilder();
@@ -439,7 +440,7 @@ namespace VideoScreensaver {
                             imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
                             imgForExif.Save(filename);
                         }
-					}
+					}*/
                     var img = new BitmapImage();
                     img.BeginInit();
                     img.CacheOption = BitmapCacheOption.OnLoad;
@@ -458,6 +459,44 @@ namespace VideoScreensaver {
                     */
                     FullScreenImage.Source = img;
                     imageTimer.Start();
+
+                    //********* NEW EXIF CODE **************
+                    imgStream.Seek(0, SeekOrigin.Begin);
+                    if (filename.ToLower().EndsWith("jpg"))
+                    {
+                        StringBuilder info = new StringBuilder();
+                        info.AppendLine(filename + "\n" + (int)img.Width + "x" + (int)img.Height);
+                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                        var bitmapFrame = decoder.Frames[0];
+                        if (bitmapFrame != null)
+                        {
+                            BitmapMetadata metaData = (BitmapMetadata)bitmapFrame.Metadata.Clone();
+                            if (metaData != null)
+                            {
+                                if (!String.IsNullOrWhiteSpace(metaData.DateTaken))
+                                {
+                                    info.AppendLine("Date taken: " + metaData.DateTaken);
+                                }
+                                if (!String.IsNullOrWhiteSpace(metaData.Title))
+                                {
+                                    info.AppendLine("Title: " + metaData.Title);
+                                }
+                                if (!String.IsNullOrWhiteSpace(metaData.Subject))
+                                {
+                                    info.AppendLine("Subject: " + metaData.Subject);
+                                }
+                                if (!String.IsNullOrWhiteSpace(metaData.Comment))
+                                {
+                                    info.AppendLine("User comment: " + metaData.Comment);
+                                }
+                            }                            
+                        }
+                        Overlay.Text = info.ToString();
+                    }
+                    else
+                    {
+                        Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height;
+                    }
                 }
             }
             catch
