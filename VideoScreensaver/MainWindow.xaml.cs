@@ -496,8 +496,12 @@ namespace VideoScreensaver {
                                 {
                                     info.AppendLine("User comment: " + metaData.Comment);
                                 }
-                            }
-                        }
+
+								PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
+								String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+
+							}
+						}
                         Overlay.Text = info.ToString();
                     }
                     else
@@ -512,6 +516,27 @@ namespace VideoScreensaver {
                 ShowError("Can not load " + filename + " ! Screensaver paused, press P to unpause.");
             }
         }
+
+		private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
+		{
+			BitmapMetadata theMetadata = metadata as BitmapMetadata;
+			if (theMetadata != null)
+			{
+				foreach (string query in theMetadata)
+				{
+					string tempQuery = fullQuery + query;
+					// query string here is relative to the previous metadata reader.
+					object o = theMetadata.GetQuery(query);
+					//richTextBox1.Text += "\n" + tempQuery + ", " + query + ", " + o;
+					Console.WriteLine(tempQuery + ", " + query + ", " + o);
+					BitmapMetadata moreMetadata = o as BitmapMetadata;
+					if (moreMetadata != null)
+					{
+						PrintMetadata(moreMetadata, tempQuery);
+					}
+				}
+			}
+		}
 
 		/// <summary>
 		/// Return the proper System.Drawing.RotateFlipType according to given orientation EXIF metadata
