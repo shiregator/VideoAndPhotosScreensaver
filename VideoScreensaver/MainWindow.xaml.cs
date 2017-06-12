@@ -402,29 +402,47 @@ namespace VideoScreensaver {
                     var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
                         FileShare.Delete | FileShare.ReadWrite))
                 {
-                    if (imageRotationAngle != 0)
-                    {
-                        using (Image imgForExif = Image.FromStream(imgStream, false, false))
-                        {
-                            // Save rotation to file                            
-                            imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-                            switch(Path.GetExtension(filename).ToLower())
-                            {
-                                case ".jpg":
-                                    imgForExif.Save(filename, ImageFormat.Jpeg);
-                                    break;
-                                case ".png":
-                                    imgForExif.Save(filename, ImageFormat.Png);
-                                    break;
-                                case ".bmp":
-                                    imgForExif.Save(filename, ImageFormat.Bmp);
-                                    break;
-                                case ".gif":
-                                    imgForExif.Save(filename, ImageFormat.Gif);
-                                    break;
-                            }
-                        }
-                        imageRotationAngle = 0;
+					using (Image imgForExif = Image.FromStream(imgStream, false, false))
+					{
+						// Check to see if image display needs to be rotated per EXIF Orientation parameter (274) or user R key input
+						if (Array.IndexOf(imgForExif.PropertyIdList, 274) > -1)
+						{
+							PropertyItem orientation = imgForExif.GetPropertyItem(274);
+							var fType = GetRotateFlipTypeByExifOrientationData( (int)orientation.Value[0] );
+
+							// Check to see if user requested rotation (R key)
+							if (imageRotationAngle == 90)
+							{
+								orientation.Value = BitConverter.GetBytes((int) GetNextRotationOrientation( (int)orientation.Value[0] ));
+								// Set EXIF tag property to new orientation
+								imgForExif.SetPropertyItem(orientation);
+								// update RotateFlipType accordingly
+								fType = GetRotateFlipTypeByExifOrientationData((int)orientation.Value[0]);
+
+								/*
+								// Save rotation to file                            
+								imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+								switch(Path.GetExtension(filename).ToLower())
+								{
+									case ".jpg":
+										imgForExif.Save(filename, ImageFormat.Jpeg);
+										break;
+									case ".png":
+										imgForExif.Save(filename, ImageFormat.Png);
+										break;
+									case ".bmp":
+										imgForExif.Save(filename, ImageFormat.Bmp);
+										break;
+									case ".gif":
+										imgForExif.Save(filename, ImageFormat.Gif);
+										break;
+								}
+								*/
+							}
+
+							// Get rotation angle accordingly
+							imageRotationAngle = GetBitmapRotationAngleByRotationFlipType( fType );
+						}
                     }
 
                     var img = new BitmapImage();
@@ -435,7 +453,8 @@ namespace VideoScreensaver {
                     imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
                     img.StreamSource = imgStream; // load image from stream instead of file
                     img.EndInit();
-                    /*
+
+					// Rotate Image if necessary
                     TransformedBitmap transformBmp = new TransformedBitmap();
                     transformBmp.BeginInit();
                     transformBmp.Source = img;
@@ -443,8 +462,9 @@ namespace VideoScreensaver {
                     transformBmp.Transform = transform;
                     transformBmp.EndInit();
                     FullScreenImage.Source = transformBmp;
-                    */
-                    FullScreenImage.Source = img;
+					// Initialize rotation variable for next image
+					imageRotationAngle = 0;
+
                     imageTimer.Start();
 
                     //********* NEW EXIF CODE **************
@@ -493,7 +513,75 @@ namespace VideoScreensaver {
             }
         }
 
-        private void LoadMedia(string filename)
+		/// <summary>
+		/// Return the proper System.Drawing.RotateFlipType according to given orientation EXIF metadata
+		/// </summary>
+		/// <param name="orientation">Exif "Orientation"</param>
+		/// <returns>the corresponding System.Drawing.RotateFlipType enum value</returns>
+		private static System.Drawing.RotateFlipType GetRotateFlipTypeByExifOrientationData(int orientation)
+		{
+			switch (orientation)
+			{
+				case 1:
+				default:
+					return System.Drawing.RotateFlipType.RotateNoneFlipNone;
+				case 2:
+					return System.Drawing.RotateFlipType.RotateNoneFlipX;
+				case 3:
+					return System.Drawing.RotateFlipType.Rotate180FlipNone;
+				case 4:
+					return System.Drawing.RotateFlipType.Rotate180FlipX;
+				case 5:
+					return System.Drawing.RotateFlipType.Rotate90FlipX;
+				case 6:
+					return System.Drawing.RotateFlipType.Rotate90FlipNone;
+				case 7:
+					return System.Drawing.RotateFlipType.Rotate270FlipX;
+				case 8:
+					return System.Drawing.RotateFlipType.Rotate270FlipNone;
+			}
+		}
+
+		private int GetBitmapRotationAngleByRotationFlipType(System.Drawing.RotateFlipType rotationFlipType)
+		{
+			switch (rotationFlipType)
+			{
+				case System.Drawing.RotateFlipType.RotateNoneFlipNone:
+				default:
+					return 0;
+				case System.Drawing.RotateFlipType.Rotate90FlipNone:
+					return 90;
+				case System.Drawing.RotateFlipType.Rotate180FlipNone:
+					return 180;
+				case System.Drawing.RotateFlipType.Rotate270FlipNone:
+					return 270;
+			}
+		}
+
+
+		private int GetNextRotationOrientation(int currentOrientation)
+		{
+			switch (currentOrientation)
+			{
+				case 1:       // System.Drawing.RotateFlipType.RotateNoneFlipNone
+					return 6; // System.Drawing.RotateFlipType.Rotate90FlipNone
+
+				case 3:       // System.Drawing.RotateFlipType.Rotate180FlipNone
+					return 8; // System.Drawing.RotateFlipType.Rotate270FlipNone
+
+				case 6:       // System.Drawing.RotateFlipType.Rotate90FlipNone
+					return 3; // System.Drawing.RotateFlipType.Rotate180FlipNone
+
+				case 8:       // System.Drawing.RotateFlipType.Rotate270FlipNone
+					return 1; // System.Drawing.RotateFlipType.RotateNoneFlipNone
+
+				default:
+					ShowError("Could not determine next rotation orientation.");
+					return currentOrientation;
+			}
+		}
+
+		private void LoadMedia(string filename)
         {
             FullScreenImage.Visibility = Visibility.Collapsed;
             FullScreenMedia.Visibility = Visibility.Visible;
