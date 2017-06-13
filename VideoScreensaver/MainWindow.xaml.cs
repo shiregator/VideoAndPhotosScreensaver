@@ -397,87 +397,18 @@ namespace VideoScreensaver {
             FullScreenImage.Visibility = Visibility.Visible;
             FullScreenMedia.Visibility = Visibility.Collapsed;
             try
-            {
-                using (
-                    var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
-                        FileShare.Delete | FileShare.ReadWrite))
+            {                
+                using (FileStream imgStream = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
                 {
-					using (Image imgForExif = Image.FromStream(imgStream, false, false))
-					{
-						// Check to see if image display needs to be rotated per EXIF Orientation parameter (274) or user R key input
-						if (Array.IndexOf(imgForExif.PropertyIdList, 274) > -1)
-						{
-							PropertyItem orientation = imgForExif.GetPropertyItem(274);
-							var fType = GetRotateFlipTypeByExifOrientationData( (int)orientation.Value[0] );
-
-							// Check to see if user requested rotation (R key)
-							if (imageRotationAngle == 90)
-							{
-								orientation.Value = BitConverter.GetBytes((int) GetNextRotationOrientation( (int)orientation.Value[0] ));
-								// Set EXIF tag property to new orientation
-								imgForExif.SetPropertyItem(orientation);
-								// update RotateFlipType accordingly
-								fType = GetRotateFlipTypeByExifOrientationData((int)orientation.Value[0]);
-
-								/*
-								// Save rotation to file                            
-								imgForExif.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-								switch(Path.GetExtension(filename).ToLower())
-								{
-									case ".jpg":
-										imgForExif.Save(filename, ImageFormat.Jpeg);
-										break;
-									case ".png":
-										imgForExif.Save(filename, ImageFormat.Png);
-										break;
-									case ".bmp":
-										imgForExif.Save(filename, ImageFormat.Bmp);
-										break;
-									case ".gif":
-										imgForExif.Save(filename, ImageFormat.Gif);
-										break;
-								}
-								*/
-							}
-
-							// Get rotation angle accordingly
-							imageRotationAngle = GetBitmapRotationAngleByRotationFlipType( fType );
-						}
-                    }
-
-                    var img = new BitmapImage();
-                    img.BeginInit();
-                    img.CacheOption = BitmapCacheOption.OnLoad;
-
-                    //img.UriSource = new Uri(filename);
-                    imgStream.Seek(0, SeekOrigin.Begin); // seek stream to beginning
-                    img.StreamSource = imgStream; // load image from stream instead of file
-                    img.EndInit();
-
-					// Rotate Image if necessary
-                    TransformedBitmap transformBmp = new TransformedBitmap();
-                    transformBmp.BeginInit();
-                    transformBmp.Source = img;
-                    RotateTransform transform = new RotateTransform(imageRotationAngle);
-                    transformBmp.Transform = transform;
-                    transformBmp.EndInit();
-                    FullScreenImage.Source = transformBmp;
-					// Initialize rotation variable for next image
-					imageRotationAngle = 0;
-
-                    imageTimer.Start();
-
-                    //********* NEW EXIF CODE **************
-                    imgStream.Seek(0, SeekOrigin.Begin);
                     if (Path.GetExtension(filename).ToLower() == ".jpg") // load exif only for jpg
                     {
                         StringBuilder info = new StringBuilder();
-                        info.AppendLine(filename + "\n" + (int)img.Width + "x" + (int)img.Height);
-                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.IgnoreImageCache | BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
+                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
                         var bitmapFrame = decoder.Frames[0];
                         if (bitmapFrame != null)
                         {
                             BitmapMetadata metaData = (BitmapMetadata)bitmapFrame.Metadata.Clone();
+                            info.AppendLine(filename + "\n" + (int)bitmapFrame.Width + "x" + (int)bitmapFrame.Height);
                             if (metaData != null)
                             {
                                 if (!String.IsNullOrWhiteSpace(metaData.DateTaken))
@@ -497,16 +428,109 @@ namespace VideoScreensaver {
                                     info.AppendLine("User comment: " + metaData.Comment);
                                 }
 
-								PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
-								String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+                                PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
+                                String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+                                UInt16 orient = 1;
+                                System.Drawing.RotateFlipType fType = System.Drawing.RotateFlipType.RotateNoneFlipNone;
+                                if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
+                                {
+                                    orient = (UInt16)metaData.GetQuery(@"/app1/{ushort=0}/{ushort=274}"); //get rotation
+                                    fType = GetRotateFlipTypeByExifOrientationData(orient);
+                                }
+                                if (imageRotationAngle == 90)
+                                {
+                                    orient = (UInt16)GetNextRotationOrientation(orient); // get new rotation
 
-							}
-						}
+                                    //create keys if we dont have it yet
+                                    if (!metaData.ContainsQuery("/app1"))
+                                        metaData.SetQuery("/app1", new BitmapMetadata("app1"));
+                                    if (!metaData.ContainsQuery("/app1/{ushort=0}"))
+                                        metaData.SetQuery("/app1/{ushort=0}", new BitmapMetadata("ifd"));
+
+                                    metaData.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation                                   
+                                    fType = GetRotateFlipTypeByExifOrientationData(orient);
+                                    var enc = new JpegBitmapEncoder();
+                                    enc.Frames.Add(BitmapFrame.Create(bitmapFrame, bitmapFrame.Thumbnail, metaData, bitmapFrame.ColorContexts));
+                                    imgStream.Seek(0, SeekOrigin.Begin);
+                                    imgStream.SetLength(0); // clear all data
+                                    enc.Save(imgStream);
+                                }
+                                imageRotationAngle = GetBitmapRotationAngleByRotationFlipType(fType);
+                            }
+                        }
                         Overlay.Text = info.ToString();
+                        imgStream.Flush();
+                        imgStream.Close();
                     }
-                    else
+                    else //if (Path.GetExtension(filename).ToLower() == ".jpg")
                     {
-                        Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height;
+                        if (imageRotationAngle == 90)
+                        {
+                            //rotate other types of image using Image class
+                            using (Image imgForRotation = Image.FromStream(imgStream, false, false))
+                            {
+                                Overlay.Text = filename + "\n" + imgForRotation.Width + "x" + imgForRotation.Height;
+                                imgForRotation.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                                imgStream.Seek(0, SeekOrigin.Begin);
+                                switch (Path.GetExtension(filename).ToLower())
+                                {
+                                    case ".png":
+                                        imgForRotation.Save(imgStream, ImageFormat.Png);
+                                        break;
+                                    case ".bmp":
+                                        imgForRotation.Save(imgStream, ImageFormat.Bmp);
+                                        break;
+                                    case ".gif":
+                                        imgForRotation.Save(imgStream, ImageFormat.Gif);
+                                        break;
+                                }
+
+                            }
+                            imgStream.Flush();
+                            imgStream.Close();
+                            imageRotationAngle = 0; // because we already have rotated image
+                        } else
+                        {
+                            Overlay.Text = ""; // we will set it bellow
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                Overlay.Text = "";
+            }
+
+            try
+            {
+                using (
+                    var imgStream = File.Open(filename, FileMode.Open, FileAccess.Read,
+                        FileShare.Delete | FileShare.Read))
+                {
+                    var img = new BitmapImage();
+                    img.BeginInit();
+                    img.CacheOption = BitmapCacheOption.OnLoad;
+
+                    img.StreamSource = imgStream; // load image from stream instead of file
+                    img.EndInit();
+
+					// Rotate Image if necessary
+                    TransformedBitmap transformBmp = new TransformedBitmap();
+                    transformBmp.BeginInit();
+                    transformBmp.Source = img;
+                    RotateTransform transform = new RotateTransform(imageRotationAngle);
+                    transformBmp.Transform = transform;
+                    transformBmp.EndInit();
+                    FullScreenImage.Source = transformBmp;
+					// Initialize rotation variable for next image
+					imageRotationAngle = 0;
+
+                    imageTimer.Start();
+                    
+                    //if we failed to get exif data set some basic info
+                    if (String.IsNullOrWhiteSpace(Overlay.Text))
+                    {
+                        Overlay.Text = filename + "\n" + img.Width + "x" + img.Height;
                     }
                 }
             }
