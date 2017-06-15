@@ -434,39 +434,39 @@ namespace VideoScreensaver {
                                 }
 
                                 //PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
-								String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
-								if (!String.IsNullOrWhiteSpace(xmpSubject))
-								{
-									info.Append("Subject: " + xmpSubject);
-									int i = 1;
-									while (!String.IsNullOrWhiteSpace(xmpSubject))
-									{
-										xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=" + i + "}");
-										if (!String.IsNullOrWhiteSpace(xmpSubject))
-											info.Append(", " + xmpSubject);
-										i++;
-									}
-									info.AppendLine();
-								}
+                                String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+                                if (!String.IsNullOrWhiteSpace(xmpSubject))
+                                {
+                                    info.Append("Subject: " + xmpSubject);
+                                    int i = 1;
+                                    while (!String.IsNullOrWhiteSpace(xmpSubject))
+                                    {
+                                        xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=" + i + "}");
+                                        if (!String.IsNullOrWhiteSpace(xmpSubject))
+                                            info.Append(", " + xmpSubject);
+                                        i++;
+                                    }
+                                    info.AppendLine();
+                                }
 
-								object keywords = metaData.GetQuery("/app13/{ushort=0}/{ulonglong=61857348781060}/iptc/{str=Keywords}");
-								if (keywords.GetType() == typeof(string))
-									info.AppendLine("Keywords: " + keywords);
-								else if ((keywords.GetType() == typeof(string[])))
-								{
-									if ( ((string[])keywords).Length > 0 )
-									{
-										info.Append("Keywords: " + ((string[])keywords)[0]);
-										for (int i = 1; i < ((string[])keywords).Length; i++)
-										{
-											info.Append(", " + ((string[])keywords)[i]);
-										}
-										info.AppendLine();
-									}
-								}
+                                object keywords = metaData.GetQuery("/app13/{ushort=0}/{ulonglong=61857348781060}/iptc/{str=Keywords}");
+                                if (keywords.GetType() == typeof(string))
+                                    info.AppendLine("Keywords: " + keywords);
+                                else if ((keywords.GetType() == typeof(string[])))
+                                {
+                                    if ( ((string[])keywords).Length > 0 )
+                                    {
+                                        info.Append("Keywords: " + ((string[])keywords)[0]);
+                                        for (int i = 1; i < ((string[])keywords).Length; i++)
+                                        {
+                                            info.Append(", " + ((string[])keywords)[i]);
+                                        }
+                                        info.AppendLine();
+                                    }
+                                }
 
-								// Get rotation orientation
-								if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
+                                // Get rotation orientation
+                                if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
                                 {
                                     orient = (UInt16)metaData.GetQuery(@"/app1/{ushort=0}/{ushort=274}"); //get rotation
                                 }
@@ -480,8 +480,8 @@ namespace VideoScreensaver {
                         // Rotate image per user request (R key)
                         if (imageRotationAngle == 90)
                         {
-							orient = RotateImageViaInPlaceBitmapMetadataWriter(filename, orient);
-						}
+                            orient = RotateImageViaInPlaceBitmapMetadataWriter(filename, orient);
+                        }
 
                         // Get rotation angle per EXIF orientation
                         fType = GetRotateFlipTypeByExifOrientationData(orient);
@@ -572,22 +572,22 @@ namespace VideoScreensaver {
             UInt16 orient = 1;
             orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
 
-			// This only works for jpg photos
-			if (!filename.EndsWith("jpg"))
-			{
-				Console.WriteLine("The file you passed in is not a JPEG.");
-				ShowError("The file you passed in is not a JPEG.");
-				return 0;
-			}
+            // This only works for jpg photos
+            if (!filename.EndsWith("jpg"))
+            {
+                Console.WriteLine("The file you passed in is not a JPEG.");
+                ShowError("The file you passed in is not a JPEG.");
+                return 0;
+            }
 
-			// This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-			BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
+            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
+            BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
             string outputTempFile = filename + "_out.jpg";
             using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
             {
-				// This method uses a lossless transcode operation and stores metadata changes in a temp file before copying them
-				// back to the original file
-				BitmapDecoder original = BitmapDecoder.Create(originalFile, createOptions, BitmapCacheOption.None);
+                // This method uses a lossless transcode operation and stores metadata changes in a temp file before copying them
+                // back to the original file
+                BitmapDecoder original = BitmapDecoder.Create(originalFile, createOptions, BitmapCacheOption.None);
 
                 JpegBitmapEncoder output = new JpegBitmapEncoder();
 
@@ -615,7 +615,7 @@ namespace VideoScreensaver {
                     metadata.Title = "This is a title";
                     */
 
-								metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
+                    metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
 
                     // Create a new frame identical to the one from the original image, except the metadata changes.
                     // Essentially we want to keep this as close as possible to:
@@ -636,54 +636,54 @@ namespace VideoScreensaver {
             return orient;
         }
 
-		private UInt16 RotateImageViaInPlaceBitmapMetadataWriter(string filename, UInt16 prevOrient)
-		{
-			// InPlaceBitmapMetadataWriter allows us to modify the metadata (exif) directly to the original file (without a temp file)
-			// assuming there is enough space, otherwise padding must be added.  For orientation the space is constant, so it should
-			// always work if the orientation field already exists
-			UInt16 orient = 1;
-			orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
+        private UInt16 RotateImageViaInPlaceBitmapMetadataWriter(string filename, UInt16 prevOrient)
+        {
+            // InPlaceBitmapMetadataWriter allows us to modify the metadata (exif) directly to the original file (without a temp file)
+            // assuming there is enough space, otherwise padding must be added.  For orientation the space is constant, so it should
+            // always work if the orientation field already exists
+            UInt16 orient = 1;
+            orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
 
-			// This only works for jpg photos
-			if (!filename.EndsWith("jpg"))
-			{
-				Console.WriteLine("The file you passed in is not a JPEG.");
-				ShowError("The file you passed in is not a JPEG.");
-				return 0;
-			}
+            // This only works for jpg photos
+            if (!filename.EndsWith("jpg"))
+            {
+                Console.WriteLine("The file you passed in is not a JPEG.");
+                ShowError("The file you passed in is not a JPEG.");
+                return 0;
+            }
 
-			// This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-			using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
-			{
-				ConsoleColor originalColor = Console.ForegroundColor;
+            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
+            using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
+            {
+                ConsoleColor originalColor = Console.ForegroundColor;
 
-				BitmapDecoder output = BitmapDecoder.Create(originalFile, BitmapCreateOptions.None, BitmapCacheOption.Default);
+                BitmapDecoder output = BitmapDecoder.Create(originalFile, BitmapCreateOptions.None, BitmapCacheOption.Default);
 
-				InPlaceBitmapMetadataWriter metadata = output.Frames[0].CreateInPlaceBitmapMetadataWriter();
+                InPlaceBitmapMetadataWriter metadata = output.Frames[0].CreateInPlaceBitmapMetadataWriter();
 
-				// Within the InPlaceBitmapMetadataWriter, you can add, update, or remove metadata.
-				metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
+                // Within the InPlaceBitmapMetadataWriter, you can add, update, or remove metadata.
+                metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
 
-				if (metadata.TrySave())
-				{
-					Console.ForegroundColor = ConsoleColor.Green;
-					Console.WriteLine("InPlaceMetadataWriter succeeded!");
-				}
-				else
-				{
-					Console.ForegroundColor = ConsoleColor.Red;
-					Console.WriteLine("InPlaceMetadataWriter failed!");
-					ShowError("Rotate Image failed. Try to 'S' (Show in Folder) and manually rotate it.");
-				}
+                if (metadata.TrySave())
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("InPlaceMetadataWriter succeeded!");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("InPlaceMetadataWriter failed!");
+                    ShowError("Rotate Image failed. Try to 'S' (Show in Folder) and manually rotate it.");
+                }
 
-				Console.ForegroundColor = originalColor;
+                Console.ForegroundColor = originalColor;
 
-				return orient;
-			}
+                return orient;
+            }
 
-		}
+        }
 
-		private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
+        private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
         {
             BitmapMetadata theMetadata = metadata as BitmapMetadata;
             if (theMetadata != null)
