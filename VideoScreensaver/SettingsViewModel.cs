@@ -47,6 +47,13 @@ namespace VideoScreensaver
                 }
             }, o => !String.IsNullOrWhiteSpace(_selectedRow));
 
+            // command that will remove all registry keys
+            _removeSettingsCommand = new CommandHandler(o =>
+            {
+                if (System.Windows.MessageBox.Show("Are you sure you want to remove all settings from registry?", "Remove all settings", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    PreferenceManager.RemoveRegistryKeys();
+            }, o => true);
+
             // list of folders
             var list = PreferenceManager.ReadVideoSettings();
             foreach (var item in list)
@@ -62,6 +69,12 @@ namespace VideoScreensaver
         {
             get { return PreferenceManager.ReadIntervalSetting(); }
             set { PreferenceManager.WriteIntervalSetting(value); OnPropertyChanged("Interval");}
+        }
+
+        public int VolumeTimeout
+        {
+            get { return PreferenceManager.ReadVolumeTimeoutSetting(); }
+            set { PreferenceManager.WriteVolumeTimeoutSetting(value); OnPropertyChanged("VolumeTimeout"); }
         }
 
         private String _selectedRow;
@@ -90,6 +103,9 @@ namespace VideoScreensaver
 
         private CommandHandler _delCommand;
         public CommandHandler RemoveFromListCommand { get { return _delCommand; } }
+
+        private CommandHandler _removeSettingsCommand;
+        public CommandHandler RemoveSettingsCommand { get { return _removeSettingsCommand; } }
 
         private double _volume;
         public int Volume {

@@ -13,6 +13,10 @@
                 <TextBlock Text="Interval in ms: " Margin="3"/>
                 <TextBox Text="{Binding Interval, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Margin="3" HorizontalAlignment="Stretch" Width="47"/>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="3">
+                <TextBlock Text="Video volume timeout in min: " Margin="3"/>
+                <TextBox Text="{Binding VolumeTimeout, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Margin="3" HorizontalAlignment="Stretch" Width="47"/>
+            </StackPanel>
              <StackPanel Orientation="Horizontal" Margin="3">
                 <TextBlock  VerticalAlignment="Center" Text="Volume: " Margin="3"/>
                 <Slider VerticalAlignment="Center" Maximum="100" Value="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="230"/>
@@ -31,6 +35,7 @@
                     <ComboBoxItem><TextBlock Text="Random(no repeat)"/></ComboBoxItem>
                 </ComboBox>
             </StackPanel>
+            <Button Command="{Binding RemoveSettingsCommand}" Margin="3"> <TextBlock Text="Remove all settings"/> </Button>
         </StackPanel>
     </Grid>
 </Window>

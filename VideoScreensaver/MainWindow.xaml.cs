@@ -26,6 +26,7 @@ namespace VideoScreensaver {
         private List<String> mediaPaths;
         private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
+        private DispatcherTimer timeoutTimer;
         private DispatcherTimer infoShowingTimer;
         private List<String> acceptedExtensionsImages = new List<string>() {".jpg", ".png", ".bmp", ".gif"};
         private List<String> acceptedExtensionsVideos = new List<string>() { ".avi", ".wmv", ".mpg", ".mpeg", ".mkv", ".mp4" };
@@ -37,6 +38,7 @@ namespace VideoScreensaver {
             set {
                 FullScreenMedia.Volume = Math.Max(Math.Min(value, 1), 0);
                 PreferenceManager.WriteVolumeSetting(FullScreenMedia.Volume);
+                timeoutTimer?.Start();
             }
         }
 
@@ -63,6 +65,20 @@ namespace VideoScreensaver {
                                    ? FullScreenMedia.NaturalDuration.TimeSpan.ToString()
                                    : "");
             };
+
+            var timeout = PreferenceManager.ReadVolumeTimeoutSetting();
+            if (timeout > 0)
+            {
+                timeoutTimer = new DispatcherTimer();
+                timeoutTimer.Interval = TimeSpan.FromMinutes(timeout);
+                timeoutTimer.Tick += (obj, e) =>
+                {
+                    FullScreenMedia.Volume = 0;
+                    ShowError("Video volume is muted");
+                    infoShowingTimer.Start();
+                };
+                timeoutTimer.Start();                
+            }
         }
 
         //dirty trick to check if mediaelement is playing or paused

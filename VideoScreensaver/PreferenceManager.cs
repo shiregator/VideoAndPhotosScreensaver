@@ -15,11 +15,18 @@ namespace VideoScreensaver {
         public const string VIDEO_PREFS_FILE = "Media";
         public const string VOLUME_PREFS_FILE = "Volume";
         public const string INTERVAL_PREFS_FILE = "Interval";
+        public const string VOLUME_TIMEOUT_PREFS_FILE = "VolumeTimeout";
         public const string ALGORITHM_PREFS_FILE = "Algorithm";
 
         public const int ALGORITHM_SEQUENTIAL = 0;
         public const int ALGORITHM_RANDOM = 1;
         public const int ALGORITHM_RANDOM_NO_REPEAT = 2;
+
+        public static void RemoveRegistryKeys()
+        {
+            RegistryKey software = Registry.CurrentUser.CreateSubKey("Software");
+            software.DeleteSubKeyTree(BASE_KEY);
+        }
 
         public static List<String> ReadVideoSettings() {
             List<String> videos = new List<String>();
@@ -61,6 +68,22 @@ namespace VideoScreensaver {
         public static void WriteIntervalSetting(int interval)
         {
             WriteStringValue(INTERVAL_PREFS_FILE, interval.ToString());
+        }
+
+        public static int ReadVolumeTimeoutSetting()
+        {
+            try
+            {
+                return Convert.ToInt32(ReadStringValue(VOLUME_TIMEOUT_PREFS_FILE));
+            }
+            catch (System.FormatException) { }
+            catch (System.OverflowException) { }
+            return 0;
+        }
+
+        public static void WriteVolumeTimeoutSetting(int interval)
+        {
+            WriteStringValue(VOLUME_TIMEOUT_PREFS_FILE, interval.ToString());
         }
 
         public static int ReadAlgorithmSetting()
