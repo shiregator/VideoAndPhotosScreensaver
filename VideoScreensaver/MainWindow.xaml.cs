@@ -200,9 +200,11 @@ namespace VideoScreensaver {
 
         private void PromtDeleteCurrentMedia()
         {
-            if (
+            var dial = new PromptDialog("Delete file?", " Type yes or ok if you want to delete " + mediaFiles[currentItem] + " file", "yes,ok");            
+            /*if (
                 MessageBox.Show(this, "You want to delete " + mediaFiles[currentItem] + " file?", "Delete file?",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)*/
+            if (dial.ShowDialog() == true)
             {
                 String fileToDelete = mediaFiles[currentItem];
                 // remove filename from list so we don`t use it again
