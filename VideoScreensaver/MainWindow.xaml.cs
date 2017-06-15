@@ -434,10 +434,39 @@ namespace VideoScreensaver {
                                 }
 
                                 //PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
-                                String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+								String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
+								if (!String.IsNullOrWhiteSpace(xmpSubject))
+								{
+									info.Append("Subject: " + xmpSubject);
+									int i = 1;
+									while (!String.IsNullOrWhiteSpace(xmpSubject))
+									{
+										xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=" + i + "}");
+										if (!String.IsNullOrWhiteSpace(xmpSubject))
+											info.Append(", " + xmpSubject);
+										i++;
+									}
+									info.AppendLine();
+								}
 
-                                // Get rotation orientation
-                                if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
+								object keywords = metaData.GetQuery("/app13/{ushort=0}/{ulonglong=61857348781060}/iptc/{str=Keywords}");
+								if (keywords.GetType() == typeof(string))
+									info.AppendLine("Keywords: " + keywords);
+								else if ((keywords.GetType() == typeof(string[])))
+								{
+									if ( ((string[])keywords).Length > 0 )
+									{
+										info.Append("Keywords: " + ((string[])keywords)[0]);
+										for (int i = 1; i < ((string[])keywords).Length; i++)
+										{
+											info.Append(", " + ((string[])keywords)[i]);
+										}
+										info.AppendLine();
+									}
+								}
+
+								// Get rotation orientation
+								if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
                                 {
                                     orient = (UInt16)metaData.GetQuery(@"/app1/{ushort=0}/{ushort=274}"); //get rotation
                                 }
@@ -586,7 +615,7 @@ namespace VideoScreensaver {
                     metadata.Title = "This is a title";
                     */
 
-                    metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
+								metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
 
                     // Create a new frame identical to the one from the original image, except the metadata changes.
                     // Essentially we want to keep this as close as possible to:
