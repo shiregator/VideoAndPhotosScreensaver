@@ -451,8 +451,8 @@ namespace VideoScreensaver {
                         // Rotate image per user request (R key)
                         if (imageRotationAngle == 90)
                         {
-                            orient = RotateImage(filename, orient);
-                        }
+							orient = RotateImageViaInPlaceBitmapMetadataWriter(filename, orient);
+						}
 
                         // Get rotation angle per EXIF orientation
                         fType = GetRotateFlipTypeByExifOrientationData(orient);
@@ -538,31 +538,27 @@ namespace VideoScreensaver {
             }
         }
 
-        private UInt16 RotateImage(string filename, UInt16 prevOrient)
+        private UInt16 RotateImageViaTranscoding(string filename, UInt16 prevOrient)
         {
             UInt16 orient = 1;
             orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
 
-            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-            BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
+			// This only works for jpg photos
+			if (!filename.EndsWith("jpg"))
+			{
+				Console.WriteLine("The file you passed in is not a JPEG.");
+				ShowError("The file you passed in is not a JPEG.");
+				return 0;
+			}
+
+			// This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
+			BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
             string outputTempFile = filename + "_out.jpg";
             using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
             {
-                // Notice the BitmapCreateOptions and BitmapCacheOption. Using these options in the manner here
-                // will inform the JPEG decoder and encoder that we're doing a lossless transcode operation. If the
-                // encoder is anything but a JPEG encoder, then this no longer is a lossless operation.
-                // ( Details: Basically BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile 
-                //   tell the decoder to use the original image bits and BitmapCacheOption.None tells the decoder to wait 
-                //   with decoding. So, at the time of encoding the JPEG encoder understands that the input was a JPEG
-                //   and just copies over the image bits without decompressing and recompressing them. Hence, this is a
-                //   lossless operation. )
-                BitmapDecoder original = BitmapDecoder.Create(originalFile, createOptions, BitmapCacheOption.None);
-
-                if (!original.CodecInfo.FileExtensions.Contains("jpg"))
-                {
-                    Console.WriteLine("The file you passed in is not a JPEG.");
-                    return 0;
-                }
+				// This method uses a lossless transcode operation and stores metadata changes in a temp file before copying them
+				// back to the original file
+				BitmapDecoder original = BitmapDecoder.Create(originalFile, createOptions, BitmapCacheOption.None);
 
                 JpegBitmapEncoder output = new JpegBitmapEncoder();
 
@@ -611,7 +607,54 @@ namespace VideoScreensaver {
             return orient;
         }
 
-        private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
+		private UInt16 RotateImageViaInPlaceBitmapMetadataWriter(string filename, UInt16 prevOrient)
+		{
+			// InPlaceBitmapMetadataWriter allows us to modify the metadata (exif) directly to the original file (without a temp file)
+			// assuming there is enough space, otherwise padding must be added.  For orientation the space is constant, so it should
+			// always work if the orientation field already exists
+			UInt16 orient = 1;
+			orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
+
+			// This only works for jpg photos
+			if (!filename.EndsWith("jpg"))
+			{
+				Console.WriteLine("The file you passed in is not a JPEG.");
+				ShowError("The file you passed in is not a JPEG.");
+				return 0;
+			}
+
+			// This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
+			using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
+			{
+				ConsoleColor originalColor = Console.ForegroundColor;
+
+				BitmapDecoder output = BitmapDecoder.Create(originalFile, BitmapCreateOptions.None, BitmapCacheOption.Default);
+
+				InPlaceBitmapMetadataWriter metadata = output.Frames[0].CreateInPlaceBitmapMetadataWriter();
+
+				// Within the InPlaceBitmapMetadataWriter, you can add, update, or remove metadata.
+				metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
+
+				if (metadata.TrySave())
+				{
+					Console.ForegroundColor = ConsoleColor.Green;
+					Console.WriteLine("InPlaceMetadataWriter succeeded!");
+				}
+				else
+				{
+					Console.ForegroundColor = ConsoleColor.Red;
+					Console.WriteLine("InPlaceMetadataWriter failed!");
+					ShowError("Rotate Image failed. Try to 'S' (Show in Folder) and manually rotate it.");
+				}
+
+				Console.ForegroundColor = originalColor;
+
+				return orient;
+			}
+
+		}
+
+		private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
         {
             BitmapMetadata theMetadata = metadata as BitmapMetadata;
             if (theMetadata != null)
