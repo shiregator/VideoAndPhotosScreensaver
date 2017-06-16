@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VideoScreensaver"
         mc:Ignorable="d"
-        Title="Screensaver settings" Height="300" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Screensaver settings" Height="350" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         DataContext="{StaticResource SettingsViewModel}">
     <Grid>
         <StackPanel>
@@ -34,8 +34,16 @@
                     <ComboBoxItem><TextBlock Text="Random"/></ComboBoxItem>
                     <ComboBoxItem><TextBlock Text="Random(no repeat)"/></ComboBoxItem>
                 </ComboBox>
-            </StackPanel>
+            </StackPanel>            
             <Button Command="{Binding RemoveSettingsCommand}" Margin="3"> <TextBlock Text="Remove all settings"/> </Button>
+            <Grid Margin="0,3,0,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Button Command="{Binding SaveCommand}" Margin="3" Grid.Column="0"> <TextBlock Text="Save changes and exit"/> </Button>                
+                <Button Command="{Binding CancelCommand}" Margin="3" Grid.Column="1"> <TextBlock Text="Exit and discard changes"/> </Button>
+            </Grid>
         </StackPanel>
     </Grid>
 </Window>

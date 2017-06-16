@@ -34,7 +34,6 @@ namespace VideoScreensaver
                         dial.ShowDialog(null) == DialogResult.OK)
                     {
                         _mediaPaths.Add(dial.SelectedPath);
-                        PreferenceManager.WriteVideoSettings(_mediaPaths.ToList());
                     }}, 
                 o => true);
             // command that delete selected folder from list
@@ -43,7 +42,6 @@ namespace VideoScreensaver
                 if (!String.IsNullOrWhiteSpace(_selectedRow) && _mediaPaths.Contains(_selectedRow))
                 {
                     _mediaPaths.Remove(_selectedRow);
-                    PreferenceManager.WriteVideoSettings(_mediaPaths.ToList());
                 }
             }, o => !String.IsNullOrWhiteSpace(_selectedRow));
 
@@ -57,6 +55,26 @@ namespace VideoScreensaver
                 }
             }, o => true);
 
+            // command that will save setting to registry
+            _saveCommand = new CommandHandler(o =>
+            {
+                PreferenceManager.WriteVideoSettings(_mediaPaths.ToList());
+                PreferenceManager.WriteVolumeSetting((float)Volume / 100F);
+                PreferenceManager.WriteAlgorithmSetting(NextMediaAlgorithm);
+                PreferenceManager.WriteIntervalSetting(Interval);
+                PreferenceManager.WriteVolumeSetting(Volume);
+                Application.Current.Shutdown();
+            }, o => true);
+
+            // command that will remove all registry keys
+            _cancelCommand = new CommandHandler(o =>
+            {
+                if (System.Windows.MessageBox.Show("Are you sure you want to close settings and discard changes?", "Exit and discard", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    Application.Current.Shutdown();
+                }
+            }, o => true);
+
             // list of folders
             var list = PreferenceManager.ReadVideoSettings();
             foreach (var item in list)
@@ -66,18 +84,28 @@ namespace VideoScreensaver
 
             Volume = (int)(PreferenceManager.ReadVolumeSetting() * 100);
             NextMediaAlgorithm = PreferenceManager.ReadAlgorithmSetting();
+            Interval = PreferenceManager.ReadIntervalSetting();
+            VolumeTimeout = PreferenceManager.ReadVolumeTimeoutSetting();
         }
 
+        public const string VIDEO_PREFS_FILE = "Media";
+        public const string VOLUME_PREFS_FILE = "Volume";
+        public const string INTERVAL_PREFS_FILE = "Interval";
+        public const string VOLUME_TIMEOUT_PREFS_FILE = "VolumeTimeout";
+        public const string ALGORITHM_PREFS_FILE = "Algorithm";
+
+        private int _interval;
         public int Interval
         {
-            get { return PreferenceManager.ReadIntervalSetting(); }
-            set { PreferenceManager.WriteIntervalSetting(value); OnPropertyChanged("Interval");}
+            get { return _interval; }
+            set { _interval = value; OnPropertyChanged("Interval");}
         }
 
+        private int _volumeTimeout;
         public int VolumeTimeout
         {
-            get { return PreferenceManager.ReadVolumeTimeoutSetting(); }
-            set { PreferenceManager.WriteVolumeTimeoutSetting(value); OnPropertyChanged("VolumeTimeout"); }
+            get { return _volumeTimeout; }
+            set { _volumeTimeout = value; OnPropertyChanged("VolumeTimeout"); }
         }
 
         private String _selectedRow;
@@ -110,6 +138,12 @@ namespace VideoScreensaver
         private CommandHandler _removeSettingsCommand;
         public CommandHandler RemoveSettingsCommand { get { return _removeSettingsCommand; } }
 
+        private CommandHandler _saveCommand;
+        public CommandHandler SaveCommand { get { return _saveCommand; } }
+
+        private CommandHandler _cancelCommand;
+        public CommandHandler CancelCommand { get { return _cancelCommand; } }
+
         private double _volume;
         public int Volume {
             get
@@ -120,7 +154,6 @@ namespace VideoScreensaver
             {
                 _volume = value / 100F;
                 OnPropertyChanged("Volume");
-                PreferenceManager.WriteVolumeSetting(_volume);
             }
         }
 
@@ -135,7 +168,6 @@ namespace VideoScreensaver
             {
                 _alghoritm = value;
                 OnPropertyChanged("NextMediaAlgorithm");
-                PreferenceManager.WriteAlgorithmSetting(_alghoritm);
             }
         }
     }
