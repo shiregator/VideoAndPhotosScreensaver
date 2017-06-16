@@ -25,7 +25,12 @@ namespace VideoScreensaver {
         public static void RemoveRegistryKeys()
         {
             RegistryKey software = Registry.CurrentUser.CreateSubKey("Software");
-            software.DeleteSubKeyTree(BASE_KEY);
+            var key = software.OpenSubKey(BASE_KEY);
+            if (key != null)
+            {
+                key.Close();
+                software.DeleteSubKeyTree(BASE_KEY);
+            }
         }
 
         public static List<String> ReadVideoSettings() {
