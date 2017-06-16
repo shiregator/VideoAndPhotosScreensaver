@@ -19,9 +19,14 @@
                 <TextBlock x:Name="PromptBlock" Grid.Column="0" Grid.Row="0" TextWrapping="Wrap"/>
                 <TextBox x:Name="UserInput" HorizontalAlignment="Stretch" Grid.Column="0" Grid.Row="1"/>
             </Grid>
-            <Button x:Name="CancelButton" Margin="3" VerticalAlignment="Bottom">
-                <TextBlock x:Name="CancelButtonText"/>
-            </Button>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="ApplyButton" Margin="3" VerticalAlignment="Bottom">
+                    <TextBlock Text="Apply"/>
+                 </Button>
+                <Button x:Name="CancelButton" Margin="3" VerticalAlignment="Bottom">
+                    <TextBlock x:Name="CancelButtonText"/>
+                </Button>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

@@ -39,9 +39,17 @@ namespace VideoScreensaver
                 DialogResult = false;
                 Close();
             };
-            UserInput.TextChanged += (obj, e) =>
+            ApplyButton.Click += (obj, e) =>
             {
                 if (AcceptedAnswers.ToLower().Split(',').Contains(UserInput.Text.ToLower()))
+                {
+                    DialogResult = true;
+                    Close();
+                }
+            };
+            UserInput.KeyDown += (sender, e) =>
+            {
+                if (e.Key == Key.Enter && AcceptedAnswers.ToLower().Split(',').Contains(UserInput.Text.ToLower()))
                 {
                     DialogResult = true;
                     Close();
