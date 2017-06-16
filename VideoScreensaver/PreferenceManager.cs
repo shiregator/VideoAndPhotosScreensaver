@@ -102,24 +102,30 @@ namespace VideoScreensaver {
             WriteStringValue(ALGORITHM_PREFS_FILE, alg.ToString());
         }
 
-        private static Tuple<RegistryKey, RegistryKey> OpenRegistryKey() {
+        private static Tuple<RegistryKey, RegistryKey> OpenRegistryKey(bool forceCreate = false) {
             RegistryKey software = Registry.CurrentUser.CreateSubKey("Software");
-            return new Tuple<RegistryKey, RegistryKey>(software.CreateSubKey(BASE_KEY), software);
+            if (forceCreate)
+            {
+                return new Tuple<RegistryKey, RegistryKey>(software.CreateSubKey(BASE_KEY), software);
+            } else
+            {
+                return new Tuple<RegistryKey, RegistryKey>(software.OpenSubKey(BASE_KEY, true), software);
+            }
         }
 
         private static string ReadStringValue(string valueName) {
             Tuple<RegistryKey, RegistryKey> appKey = OpenRegistryKey();
             try {
-                return appKey.Item1.GetValue(valueName, "").ToString();
+                return appKey.Item1?.GetValue(valueName, "")?.ToString() ?? "";
             }
             finally {
-                appKey.Item1.Close();
-                appKey.Item2.Close();
+                appKey.Item1?.Close();
+                appKey.Item2?.Close();
             }
         }
 
         private static void WriteStringValue(string valueName, string valueData) {
-            Tuple<RegistryKey, RegistryKey> appKey = OpenRegistryKey();
+            Tuple<RegistryKey, RegistryKey> appKey = OpenRegistryKey(true);
             try {
                 appKey.Item1.SetValue(valueName, valueData);
             }

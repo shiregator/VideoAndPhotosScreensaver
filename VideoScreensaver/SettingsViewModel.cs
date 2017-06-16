@@ -62,7 +62,7 @@ namespace VideoScreensaver
                 PreferenceManager.WriteVolumeSetting((float)Volume / 100F);
                 PreferenceManager.WriteAlgorithmSetting(NextMediaAlgorithm);
                 PreferenceManager.WriteIntervalSetting(Interval);
-                PreferenceManager.WriteVolumeSetting(Volume);
+                PreferenceManager.WriteVolumeTimeoutSetting(VolumeTimeout);
                 Application.Current.Shutdown();
             }, o => true);
 
