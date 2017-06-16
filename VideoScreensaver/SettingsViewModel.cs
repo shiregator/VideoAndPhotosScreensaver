@@ -51,7 +51,10 @@ namespace VideoScreensaver
             _removeSettingsCommand = new CommandHandler(o =>
             {
                 if (System.Windows.MessageBox.Show("Are you sure you want to remove all settings from registry?", "Remove all settings", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
                     PreferenceManager.RemoveRegistryKeys();
+                    Application.Current.Shutdown();
+                }
             }, o => true);
 
             // list of folders
