@@ -415,135 +415,82 @@ namespace VideoScreensaver {
             FullScreenImage.Visibility = Visibility.Visible;
             FullScreenMedia.Visibility = Visibility.Collapsed;
 
-            try
+            Overlay.Text = "";
+
+            if (Path.GetExtension(filename).ToLower() == ".jpg") // load exif only for jpg
             {
-                using (FileStream imgStream = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
+                UInt16 orient = 1;
+                try
                 {
-                    if (Path.GetExtension(filename).ToLower() == ".jpg") // load exif only for jpg
+                    var exif = new ExifUtils();
+                    if (exif.ReadExifFromFile(filename))
                     {
-                        UInt16 orient = 1;
-                        System.Drawing.RotateFlipType fType = System.Drawing.RotateFlipType.RotateNoneFlipNone;
-                        StringBuilder info = new StringBuilder();
-                        var decoder = new JpegBitmapDecoder(imgStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                        var bitmapFrame = decoder.Frames[0];
-
-                        if (bitmapFrame != null)
-                        {
-                            BitmapMetadata metaData = (BitmapMetadata)bitmapFrame.Metadata.Clone();
-
-                            info.AppendLine(filename + "\n" + (int)bitmapFrame.Width + "x" + (int)bitmapFrame.Height);
-                            if (metaData != null)
-                            {
-                                if (!String.IsNullOrWhiteSpace(metaData.DateTaken))
-                                {
-                                    info.AppendLine("Date taken: " + metaData.DateTaken);
-                                }
-                                if (!String.IsNullOrWhiteSpace(metaData.Title))
-                                {
-                                    info.AppendLine("Title: " + metaData.Title);
-                                }
-                                if (!String.IsNullOrWhiteSpace(metaData.Subject))
-                                {
-                                    info.AppendLine("Subject: " + metaData.Subject);
-                                }
-                                if (!String.IsNullOrWhiteSpace(metaData.Comment))
-                                {
-                                    info.AppendLine("User comment: " + metaData.Comment);
-                                }
-
-                                //PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
-                                String xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
-                                if (!String.IsNullOrWhiteSpace(xmpSubject))
-                                {
-                                    info.Append("Subject: " + xmpSubject);
-                                    int i = 1;
-                                    while (!String.IsNullOrWhiteSpace(xmpSubject))
-                                    {
-                                        xmpSubject = (String)metaData.GetQuery("/xmp/dc:subject/{ulong=" + i + "}");
-                                        if (!String.IsNullOrWhiteSpace(xmpSubject))
-                                            info.Append(", " + xmpSubject);
-                                        i++;
-                                    }
-                                    info.AppendLine();
-                                }
-
-                                object keywords = metaData.GetQuery("/app13/{ushort=0}/{ulonglong=61857348781060}/iptc/{str=Keywords}");
-                                if (keywords.GetType() == typeof(string))
-                                    info.AppendLine("Keywords: " + keywords);
-                                else if ((keywords.GetType() == typeof(string[])))
-                                {
-                                    if ( ((string[])keywords).Length > 0 )
-                                    {
-                                        info.Append("Keywords: " + ((string[])keywords)[0]);
-                                        for (int i = 1; i < ((string[])keywords).Length; i++)
-                                        {
-                                            info.Append(", " + ((string[])keywords)[i]);
-                                        }
-                                        info.AppendLine();
-                                    }
-                                }
-
-                                // Get rotation orientation
-                                if (metaData.ContainsQuery(@"/app1/{ushort=0}/{ushort=274}"))
-                                {
-                                    orient = (UInt16)metaData.GetQuery(@"/app1/{ushort=0}/{ushort=274}"); //get rotation
-                                }
-                                                                                                
-                            }
-                        }
-                        Overlay.Text = info.ToString();
-                        imgStream.Flush();
-                        imgStream.Close();
-
-                        // Rotate image per user request (R key)
-                        if (imageRotationAngle == 90)
-                        {
-                            orient = RotateImageViaInPlaceBitmapMetadataWriter(filename, orient);
-                        }
-
-                        // Get rotation angle per EXIF orientation
-                        fType = GetRotateFlipTypeByExifOrientationData(orient);
-                        imageRotationAngle = GetBitmapRotationAngleByRotationFlipType(fType);
-
+                        orient = exif.GetOrientation();
+                        Overlay.Text = filename + Environment.NewLine + exif.GetInfoString();
                     }
-                    else //if (Path.GetExtension(filename).ToLower() == ".jpg")
+                    else
                     {
-                        if (imageRotationAngle == 90)
-                        {
-                            //rotate other types of image using Image class
-                            using (Image imgForRotation = Image.FromStream(imgStream, false, false))
-                            {
-                                Overlay.Text = filename + "\n" + imgForRotation.Width + "x" + imgForRotation.Height;
-                                imgForRotation.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-                                imgStream.Seek(0, SeekOrigin.Begin);
-                                switch (Path.GetExtension(filename).ToLower())
-                                {
-                                    case ".png":
-                                        imgForRotation.Save(imgStream, ImageFormat.Png);
-                                        break;
-                                    case ".bmp":
-                                        imgForRotation.Save(imgStream, ImageFormat.Bmp);
-                                        break;
-                                    case ".gif":
-                                        imgForRotation.Save(imgStream, ImageFormat.Gif);
-                                        break;
-                                }
+                        Overlay.Text = "";
+                    }
+                }
+                catch
+                {
+                    ShowError("Can not load exif data");
+                    infoShowingTimer.Start();
+                }
 
+                // Rotate image per user request (R key)
+                if (imageRotationAngle == 90)
+                {
+                    try
+                    {
+                        orient = ExifUtils.RotateImageViaInPlaceBitmapMetadataWriter(filename, orient);
+                    }
+                    catch //InPlaceBitmapMetadataWriter can only work when there is already orientation exif. if image doesn`t have it we will use transcoding
+                    {
+                        orient = ExifUtils.RotateImageViaTranscoding(filename, orient);
+                    }
+                }
+
+                // Get rotation angle per EXIF orientation
+                var fType = ExifUtils.GetRotateFlipTypeByExifOrientationData(orient);
+                imageRotationAngle = ExifUtils.GetBitmapRotationAngleByRotationFlipType(fType);
+            } else //if (Path.GetExtension(filename).ToLower() == ".jpg")
+            {
+                if (imageRotationAngle == 90)
+                {
+                    try
+                    {
+                        //rotate other types of image using Image class
+                        using (FileStream imgStream = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
+                        using (Image imgForRotation = Image.FromStream(imgStream, false, false))
+                        {
+                            imgForRotation.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                            imgStream.Seek(0, SeekOrigin.Begin);
+                            switch (Path.GetExtension(filename).ToLower())
+                            {
+                                case ".png":
+                                    imgForRotation.Save(imgStream, ImageFormat.Png);
+                                    break;
+                                case ".bmp":
+                                    imgForRotation.Save(imgStream, ImageFormat.Bmp);
+                                    break;
+                                case ".gif":
+                                    imgForRotation.Save(imgStream, ImageFormat.Gif);
+                                    break;
                             }
                             imgStream.Flush();
                             imgStream.Close();
-                            imageRotationAngle = 0; // because we already have rotated image
-                        } else
-                        {
-                            Overlay.Text = ""; // we will set it bellow
                         }
+                        imageRotationAngle = 0; // because we already have rotated image
+                    }
+                    catch (Exception e)
+                    {
+                        ShowError(e.Message);
+                        infoShowingTimer.Start();
                     }
                 }
-            }
-            catch
-            {
-                Overlay.Text = "";
-            }
+            }            
 
             try
             {
@@ -574,7 +521,7 @@ namespace VideoScreensaver {
                     //if we failed to get exif data set some basic info
                     if (String.IsNullOrWhiteSpace(Overlay.Text))
                     {
-                        Overlay.Text = filename + "\n" + img.Width + "x" + img.Height;
+                        Overlay.Text = filename + "\n" + (int)img.Width + "x" + (int)img.Height;
                     }
                 }
             }
@@ -585,211 +532,8 @@ namespace VideoScreensaver {
             }
         }
 
-        private UInt16 RotateImageViaTranscoding(string filename, UInt16 prevOrient)
-        {
-            UInt16 orient = 1;
-            orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
-
-            // This only works for jpg photos
-            if (!filename.EndsWith("jpg"))
-            {
-                Console.WriteLine("The file you passed in is not a JPEG.");
-                ShowError("The file you passed in is not a JPEG.");
-                return 0;
-            }
-
-            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-            BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
-            string outputTempFile = filename + "_out.jpg";
-            using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
-            {
-                // This method uses a lossless transcode operation and stores metadata changes in a temp file before copying them
-                // back to the original file
-                BitmapDecoder original = BitmapDecoder.Create(originalFile, createOptions, BitmapCacheOption.None);
-
-                JpegBitmapEncoder output = new JpegBitmapEncoder();
-
-                // If you're just interested in doing a lossless transcode without adding metadata, just do this:
-                //output.Frames = original.Frames;
-
-                // If you want to add metadata to the image (or could use the InPlaceBitmapMetadataWriter with added padding)
-                if (original.Frames[0] != null && original.Frames[0].Metadata != null)
-                {
-                    // The BitmapMetadata object is frozen. So, you need to clone the BitmapMetadata and then
-                    // set the padding on it. Lastly, you need to create a "new" frame with the updated metadata.
-                    BitmapMetadata metadata = original.Frames[0].Metadata.Clone() as BitmapMetadata;
-
-                    // Of the metadata handlers that we ship in WIC, padding can only exist in IFD, EXIF, and XMP.
-                    // Third parties implementing their own metadata handler may wish to support IWICFastMetadataEncoder
-                    // and hence support padding as well.
-                    /*
-                    metadata.SetQuery("/app1/ifd/PaddingSchema:Padding", paddingAmount);
-                    metadata.SetQuery("/app1/ifd/exif/PaddingSchema:Padding", paddingAmount);
-                    metadata.SetQuery("/xmp/PaddingSchema:Padding", paddingAmount);
-
-                    // Since you're already adding metadata now, you can go ahead and add metadata up front.
-                    metadata.SetQuery("/app1/ifd/{uint=897}", "hello there");
-                    metadata.SetQuery("/app1/ifd/{uint=898}", "this is a test");
-                    metadata.Title = "This is a title";
-                    */
-
-                    metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
-
-                    // Create a new frame identical to the one from the original image, except the metadata changes.
-                    // Essentially we want to keep this as close as possible to:
-                    //     output.Frames = original.Frames;
-                    output.Frames.Add(BitmapFrame.Create(original.Frames[0], original.Frames[0].Thumbnail, metadata, original.Frames[0].ColorContexts));
-                }
-
-                using (Stream outputFile = File.Open(outputTempFile, FileMode.Create, FileAccess.ReadWrite))
-                {
-                    output.Save(outputFile);
-                }
-            }
-
-            // Delete the original and replace it with the temp output file
-            File.Delete(filename);
-            File.Move(outputTempFile, filename);
-
-            return orient;
-        }
-
-        private UInt16 RotateImageViaInPlaceBitmapMetadataWriter(string filename, UInt16 prevOrient)
-        {
-            // InPlaceBitmapMetadataWriter allows us to modify the metadata (exif) directly to the original file (without a temp file)
-            // assuming there is enough space, otherwise padding must be added.  For orientation the space is constant, so it should
-            // always work if the orientation field already exists
-            UInt16 orient = 1;
-            orient = (UInt16)GetNextRotationOrientation(prevOrient); // get new rotation
-
-            // This only works for jpg photos
-            if (!filename.EndsWith("jpg"))
-            {
-                Console.WriteLine("The file you passed in is not a JPEG.");
-                ShowError("The file you passed in is not a JPEG.");
-                return 0;
-            }
-
-            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-            using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
-            {
-                ConsoleColor originalColor = Console.ForegroundColor;
-
-                BitmapDecoder output = BitmapDecoder.Create(originalFile, BitmapCreateOptions.None, BitmapCacheOption.Default);
-
-                InPlaceBitmapMetadataWriter metadata = output.Frames[0].CreateInPlaceBitmapMetadataWriter();
-
-                // Within the InPlaceBitmapMetadataWriter, you can add, update, or remove metadata.
-                metadata.SetQuery("/app1/{ushort=0}/{ushort=274}", orient); //set next rotation  
-
-                if (metadata.TrySave())
-                {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("InPlaceMetadataWriter succeeded!");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("InPlaceMetadataWriter failed!");
-                    ShowError("Rotate Image failed. Try to 'S' (Show in Folder) and manually rotate it.");
-                }
-
-                Console.ForegroundColor = originalColor;
-
-                return orient;
-            }
-
-        }
-
-        private void PrintMetadata(System.Windows.Media.ImageMetadata metadata, string fullQuery)
-        {
-            BitmapMetadata theMetadata = metadata as BitmapMetadata;
-            if (theMetadata != null)
-            {
-                foreach (string query in theMetadata)
-                {
-                    string tempQuery = fullQuery + query;
-                    // query string here is relative to the previous metadata reader.
-                    object o = theMetadata.GetQuery(query);
-                    //richTextBox1.Text += "\n" + tempQuery + ", " + query + ", " + o;
-                    Console.WriteLine(tempQuery + ", " + query + ", " + o);
-                    BitmapMetadata moreMetadata = o as BitmapMetadata;
-                    if (moreMetadata != null)
-                    {
-                        PrintMetadata(moreMetadata, tempQuery);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Return the proper System.Drawing.RotateFlipType according to given orientation EXIF metadata
-        /// </summary>
-        /// <param name="orientation">Exif "Orientation"</param>
-        /// <returns>the corresponding System.Drawing.RotateFlipType enum value</returns>
-        private static System.Drawing.RotateFlipType GetRotateFlipTypeByExifOrientationData(int orientation)
-        {
-            switch (orientation)
-            {
-                case 1:
-                default:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipNone;
-                case 2:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipX;
-                case 3:
-                    return System.Drawing.RotateFlipType.Rotate180FlipNone;
-                case 4:
-                    return System.Drawing.RotateFlipType.Rotate180FlipX;
-                case 5:
-                    return System.Drawing.RotateFlipType.Rotate90FlipX;
-                case 6:
-                    return System.Drawing.RotateFlipType.Rotate90FlipNone;
-                case 7:
-                    return System.Drawing.RotateFlipType.Rotate270FlipX;
-                case 8:
-                    return System.Drawing.RotateFlipType.Rotate270FlipNone;
-            }
-        }
-
-        private int GetBitmapRotationAngleByRotationFlipType(System.Drawing.RotateFlipType rotationFlipType)
-        {
-            switch (rotationFlipType)
-            {
-                case System.Drawing.RotateFlipType.RotateNoneFlipNone:
-                default:
-                    return 0;
-                case System.Drawing.RotateFlipType.Rotate90FlipNone:
-                    return 90;
-                case System.Drawing.RotateFlipType.Rotate180FlipNone:
-                    return 180;
-                case System.Drawing.RotateFlipType.Rotate270FlipNone:
-                    return 270;
-            }
-        }
-
-
-        private int GetNextRotationOrientation(int currentOrientation)
-        {
-            switch (currentOrientation)
-            {
-                case 1:       // System.Drawing.RotateFlipType.RotateNoneFlipNone
-                    return 6; // System.Drawing.RotateFlipType.Rotate90FlipNone
-
-                case 3:       // System.Drawing.RotateFlipType.Rotate180FlipNone
-                    return 8; // System.Drawing.RotateFlipType.Rotate270FlipNone
-
-                case 6:       // System.Drawing.RotateFlipType.Rotate90FlipNone
-                    return 3; // System.Drawing.RotateFlipType.Rotate180FlipNone
-
-                case 8:       // System.Drawing.RotateFlipType.Rotate270FlipNone
-                    return 1; // System.Drawing.RotateFlipType.RotateNoneFlipNone
-
-                default:
-                    ShowError("Could not determine next rotation orientation.");
-                    return currentOrientation;
-            }
-        }
-
+        
+                
         private void LoadMedia(string filename)
         {
             FullScreenImage.Visibility = Visibility.Collapsed;
