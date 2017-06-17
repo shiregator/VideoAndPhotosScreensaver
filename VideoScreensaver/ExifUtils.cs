@@ -232,8 +232,7 @@ namespace VideoScreensaver
             if (!filename.EndsWith("jpg"))
             {
                 Console.WriteLine("The file you passed in is not a JPEG.");
-                throw new ArgumentException("The file you passed in is not a JPEG.", "filename");
-                return 0;
+                throw new ArgumentException("The file you passed in is not a JPEG.", filename);
             }
 
             // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
@@ -280,8 +279,7 @@ namespace VideoScreensaver
             if (!filename.EndsWith("jpg"))
             {
                 Console.WriteLine("The file you passed in is not a JPEG.");
-                throw new ArgumentException("The file you passed in is not a JPEG.", "filename");
-                return 0;
+                throw new ArgumentException("The file you passed in is not a JPEG.", filename);
             }
 
             // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
