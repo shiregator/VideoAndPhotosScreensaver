@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,6 +25,8 @@ namespace VideoScreensaver {
         private bool preview;
         private Point? lastMousePosition = null;  // Workaround for "MouseMove always fires when maximized" bug.
         private int currentItem = -1;
+        private bool isLoadingFiles = false;
+        private CancellationTokenSource cancellationSource = new CancellationTokenSource();
         private List<String> mediaPaths;
         private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
@@ -259,7 +263,8 @@ namespace VideoScreensaver {
         // End the screensaver only if running in full screen. No-op in preview mode.
         private void EndFullScreensaver() {
             if (!preview) {
-                Application.Current?.Shutdown();
+                cancellationSource.Cancel();
+                Application.Current?.Shutdown();                
                 //Close();
             }
         }
@@ -279,8 +284,8 @@ namespace VideoScreensaver {
             return false;
         }
 
-        private void AddMediaFilesFromDirRecursive(String path)
-        {
+        private async Task AddMediaFilesFromDirRecursive(String path, CancellationToken token)
+        {            
             var files = Directory.GetFiles(path);
             // get all media files using linq
             var media = from String f in files
@@ -289,24 +294,26 @@ namespace VideoScreensaver {
             // add all files to media list
             foreach (string s in media)
             {
-                mediaFiles.Add(System.IO.Path.Combine(path, s));
+                if (token.IsCancellationRequested) return;
+                mediaFiles.Add(Path.Combine(path, s));
             }
             // go through all subfolders
             var dirs = Directory.GetDirectories(path);
             foreach (var dir in dirs)
             {
-                AddMediaFilesFromDirRecursive(dir);
+                await AddMediaFilesFromDirRecursive(dir, token);
             }
         }
 
-        private void OnLoaded(object sender, RoutedEventArgs e) {
-            mediaPaths = PreferenceManager.ReadVideoSettings();
-            mediaFiles = new List<string>();
-            algorithm = PreferenceManager.ReadAlgorithmSetting();
+        private async Task LoadFiles()
+        {
+            var tempAlgorithm = algorithm;
+            algorithm = PreferenceManager.ALGORITHM_SEQUENTIAL; //set ALGORITHM_SEQUENTIAL until we load all files
             foreach (string videoPath in mediaPaths)
             {
-                AddMediaFilesFromDirRecursive(videoPath);
+                await AddMediaFilesFromDirRecursive(videoPath, cancellationSource.Token);
             }
+            algorithm = tempAlgorithm;
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
             {
                 // shuffle list
@@ -315,9 +322,18 @@ namespace VideoScreensaver {
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
             {
                 lastMedia = new List<String>();
+                currentItem = 0; //clear current item to start over
             }
+            isLoadingFiles = false;
+        }
 
-            if (mediaPaths.Count == 0 || mediaFiles.Count == 0) {
+        private async void OnLoaded(object sender, RoutedEventArgs e) {
+            mediaPaths = PreferenceManager.ReadVideoSettings();
+            mediaFiles = new List<string>();
+            algorithm = PreferenceManager.ReadAlgorithmSetting();
+            isLoadingFiles = true;
+            Task.Factory.StartNew(() => LoadFiles()); // load files in another thread
+            if ((mediaPaths.Count == 0 || mediaFiles.Count == 0) && !isLoadingFiles) {
                 ShowError("This screensaver needs to be configured before any video is displayed.");
             } else
             {
@@ -336,7 +352,12 @@ namespace VideoScreensaver {
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
                     currentItem--;
                     if (currentItem < 0)
-                        currentItem = mediaFiles.Count - 1;
+                    {
+                        if (isLoadingFiles)
+                            currentItem = 0;
+                        else
+                            currentItem = mediaFiles.Count - 1;
+                    }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
                     if (lastMedia.Count >= 2)
@@ -380,8 +401,20 @@ namespace VideoScreensaver {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
                     currentItem++;
+                    if (isLoadingFiles)
+                    {
+                        if (currentItem >= mediaFiles.Count)
+                            ShowError("Wait untill more files loaded");
+                        do
+                        {
+                            Thread.Sleep(100);
+                        } while (isLoadingFiles && currentItem >= mediaFiles.Count);
+
+                    }
                     if (currentItem >= mediaFiles.Count)
+                    {
                         currentItem = 0;
+                    }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
                     currentItem = new Random().Next(mediaFiles.Count);
