@@ -232,7 +232,7 @@ namespace VideoScreensaver
             if (!filename.EndsWith("jpg"))
             {
                 Console.WriteLine("The file you passed in is not a JPEG.");
-                throw new ArgumentException("The file you passed in is not a JPEG.", filename);
+                throw new ArgumentException("The file you passed in is not a JPEG:\n " + filename, "filename");
             }
 
             // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
@@ -279,11 +279,11 @@ namespace VideoScreensaver
             if (!filename.EndsWith("jpg"))
             {
                 Console.WriteLine("The file you passed in is not a JPEG.");
-                throw new ArgumentException("The file you passed in is not a JPEG.", filename);
-            }
+				throw new ArgumentException("The file you passed in is not a JPEG:\n " + filename, "filename");
+			}
 
-            // This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
-            BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
+			// This code is based on http://blogs.msdn.com/b/rwlodarc/archive/2007/07/18/using-wpf-s-inplacebitmapmetadatawriter.aspx
+			BitmapCreateOptions createOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
             string outputTempFile = filename + "_out.jpg";
             using (Stream originalFile = File.Open(filename, FileMode.Open, FileAccess.ReadWrite))
             {
