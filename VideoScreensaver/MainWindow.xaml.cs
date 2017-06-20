@@ -227,6 +227,8 @@ namespace VideoScreensaver {
                         "Can not delete file!", MessageBoxButton.OK, MessageBoxImage.Error);
                     Pause(); //unpause
                 }
+
+                File.AppendAllText("deletedFiles.log", fileToDelete + Environment.NewLine); //you can add here anything you want. 
             }
             else
             {
