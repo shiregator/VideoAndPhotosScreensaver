@@ -404,12 +404,15 @@ namespace VideoScreensaver {
                     if (isLoadingFiles)
                     {
                         if (currentItem >= mediaFiles.Count)
-                            ShowError("Wait untill more files loaded");
-                        do
                         {
-                            Thread.Sleep(100);
-                        } while (isLoadingFiles && currentItem >= mediaFiles.Count);
-
+                            ShowError("Wait untill more files loaded");
+                            infoShowingTimer.Start();
+                            Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
+                            do
+                            {
+                                Thread.Sleep(100);
+                            } while (isLoadingFiles && currentItem >= mediaFiles.Count);
+                        }                        
                     }
                     if (currentItem >= mediaFiles.Count)
                     {
