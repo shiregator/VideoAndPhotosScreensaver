@@ -271,7 +271,11 @@ namespace VideoScreensaver {
 
         private bool IsMedia(String fileName)
         {
-            foreach (var acceptedExtension in acceptedExtensionsImages)
+            // Ignore these files
+            if (fileName.Contains("$RECYCLE.BIN"))
+                return false;
+
+			foreach (var acceptedExtension in acceptedExtensionsImages)
             {
                 if (fileName.ToLower().EndsWith(acceptedExtension))
                     return true;
