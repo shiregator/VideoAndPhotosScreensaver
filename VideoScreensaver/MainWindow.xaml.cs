@@ -232,7 +232,7 @@ namespace VideoScreensaver {
                     Pause(); //unpause
                 }
 
-                File.AppendAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PhotoVideoScreensaver_deletedFiles.log"), fileToDelete + Environment.NewLine); //you can add here anything you want. 
+                File.AppendAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PhotoVideoScreensaver_deletedFiles.log"), DateTime.Now + ": " + fileToDelete + Environment.NewLine); //you can add here anything you want. 
             }
             else
             {
