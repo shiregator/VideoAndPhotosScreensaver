@@ -175,8 +175,8 @@ namespace VideoScreensaver {
 
         private void ShowInFolder()
         {
-            Process.Start("explorer", "/select, \"" + mediaFiles[currentItem] + "\"");
-            EndFullScreensaver(); // close screensaver to show opened fodlder
+			Process.Start("explorer", "/select, \"" + mediaFiles[currentItem] + "\"");
+			EndFullScreensaver(); // close screensaver to show opened fodlder
         }
 
         private void Pause()
@@ -289,8 +289,8 @@ namespace VideoScreensaver {
         }
 
         private async Task AddMediaFilesFromDirRecursive(String path, CancellationToken token)
-        {            
-            var files = Directory.GetFiles(path);
+        {
+			var files = Directory.GetFiles(path);
             // get all media files using linq
             var media = from String f in files
                         where IsMedia(f)
@@ -307,7 +307,7 @@ namespace VideoScreensaver {
             {
                 await AddMediaFilesFromDirRecursive(dir, token);
             }
-        }
+		}
 
         private async Task LoadFiles()
         {
@@ -315,6 +315,9 @@ namespace VideoScreensaver {
             algorithm = PreferenceManager.ALGORITHM_SEQUENTIAL; //set ALGORITHM_SEQUENTIAL until we load all files
             foreach (string videoPath in mediaPaths)
             {
+                // Verify path is reachable
+                if (!Directory.Exists(videoPath))
+                    break;
                 await AddMediaFilesFromDirRecursive(videoPath, cancellationSource.Token);
             }
             algorithm = tempAlgorithm;
