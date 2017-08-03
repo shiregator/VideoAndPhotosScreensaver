@@ -25,6 +25,7 @@ namespace VideoScreensaver {
         private bool preview;
         private Point? lastMousePosition = null;  // Workaround for "MouseMove always fires when maximized" bug.
         private int currentItem = -1;
+        private int currentLastMediaItem = -1;
         private bool isLoadingFiles = false;
         private CancellationTokenSource cancellationSource = new CancellationTokenSource();
         private List<String> mediaPaths;
@@ -214,7 +215,9 @@ namespace VideoScreensaver {
                 // remove filename from list so we don`t use it again
                 if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
                 {
-                    lastMedia.Remove(fileToDelete);
+                    if (lastMedia.IndexOf(fileToDelete) >= currentLastMediaItem)
+                        currentLastMediaItem--;
+                    lastMedia.Remove(fileToDelete);                    
                 }
                 mediaFiles.RemoveAt(currentItem);
                 
@@ -327,9 +330,9 @@ namespace VideoScreensaver {
                 mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
             }
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
-            {
-                lastMedia = new List<String>();
+            {                
                 currentItem = 0; //clear current item to start over
+                currentLastMediaItem = 0;
             }
             isLoadingFiles = false;
         }
@@ -338,6 +341,10 @@ namespace VideoScreensaver {
             mediaPaths = PreferenceManager.ReadVideoSettings();
             mediaFiles = new List<string>();
             algorithm = PreferenceManager.ReadAlgorithmSetting();
+            if (algorithm == PreferenceManager.ALGORITHM_RANDOM) // we need to create it before we start showing pictures. before it was after full load
+            {
+                lastMedia = new List<String>();
+            }
             isLoadingFiles = true;
             Task.Factory.StartNew(() => LoadFiles()); // load files in another thread
             if ((mediaPaths.Count == 0 || mediaFiles.Count == 0) && !isLoadingFiles) {
@@ -369,8 +376,9 @@ namespace VideoScreensaver {
                 case PreferenceManager.ALGORITHM_RANDOM:
                     if (lastMedia.Count >= 2)
                     {
-                        currentItem = mediaFiles.IndexOf(lastMedia[lastMedia.Count - 2]);
-                        lastMedia.RemoveAt(lastMedia.Count - 1);
+                        if (currentLastMediaItem > 0) currentLastMediaItem--;
+                        currentItem = mediaFiles.IndexOf(lastMedia[currentLastMediaItem]);
+                        //lastMedia.RemoveAt(lastMedia.Count - 1);
                     }
                     else
                     {
@@ -403,34 +411,42 @@ namespace VideoScreensaver {
             FullScreenMedia.Stop();
             FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
             imageRotationAngle = 0;
+            if (isLoadingFiles)
+            {
+                if ((currentItem + 1) >= mediaFiles.Count || mediaFiles.Count == 0) // first condition is for ALGORITHM_SEQUENTIAL and ALGORITHM_RANDOM_NO_REPEAT , second is for ALGORITHM_RANDOM
+                {
+                    ShowError("Wait untill more files loaded");
+                    infoShowingTimer.Start();
+                    Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
+                    do
+                    {
+                        Thread.Sleep(100);
+                    } while (isLoadingFiles && currentItem >= mediaFiles.Count);
+                }
+            }
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
-                    currentItem++;
-                    if (isLoadingFiles)
-                    {
-                        if (currentItem >= mediaFiles.Count)
-                        {
-                            ShowError("Wait untill more files loaded");
-                            infoShowingTimer.Start();
-                            Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
-                            do
-                            {
-                                Thread.Sleep(100);
-                            } while (isLoadingFiles && currentItem >= mediaFiles.Count);
-                        }                        
-                    }
+                    currentItem++;                    
                     if (currentItem >= mediaFiles.Count)
                     {
                         currentItem = 0;
                     }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
-                    currentItem = new Random().Next(mediaFiles.Count);
-                    lastMedia.Add(mediaFiles[currentItem]);
-                    if (lastMedia.Count > 100)
-                        lastMedia.RemoveAt(0);
+                    if (currentLastMediaItem < (lastMedia.Count - 1))
+                    {
+                        currentLastMediaItem++;
+                        currentItem = mediaFiles.IndexOf(lastMedia[currentLastMediaItem]);
+                    }else
+                    {
+                        currentItem = new Random().Next(mediaFiles.Count - 1);                        
+                        lastMedia.Add(mediaFiles[currentItem]);
+                        if (lastMedia.Count > 100)
+                            lastMedia.RemoveAt(0);
+                        currentLastMediaItem = lastMedia.Count - 1;
+                    }
                     break;
             }
             if (mediaFiles.Count == 0)
