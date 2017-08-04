@@ -315,8 +315,8 @@ namespace VideoScreensaver {
         private async Task LoadFiles()
         {
             var tempAlgorithm = algorithm;
-            algorithm = PreferenceManager.ALGORITHM_SEQUENTIAL; //set ALGORITHM_SEQUENTIAL until we load all files
-            foreach (string videoPath in mediaPaths)
+			if(algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT) algorithm = PreferenceManager.ALGORITHM_RANDOM; //set ALGORITHM_RANDOM until we load all files
+			foreach (string videoPath in mediaPaths)
             {
                 // Verify path is reachable
                 if (!Directory.Exists(videoPath))
@@ -328,7 +328,14 @@ namespace VideoScreensaver {
             {
                 // shuffle list
                 mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
-            }
+
+				// Prepend any stored previous files from loading
+				mediaFiles.InsertRange(0, lastMedia);
+
+				// Set index of combined list at last media item
+				currentItem = lastMedia.Count - 1;
+				Console.WriteLine("LoadFiles(): b lastMedia.Count = " + lastMedia.Count + ", currentItem = " + currentItem + ", mediaFiles.Count = " + mediaFiles.Count);
+			}
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
             {                
                 currentItem = 0; //clear current item to start over
@@ -341,7 +348,7 @@ namespace VideoScreensaver {
             mediaPaths = PreferenceManager.ReadVideoSettings();
             mediaFiles = new List<string>();
             algorithm = PreferenceManager.ReadAlgorithmSetting();
-            if (algorithm == PreferenceManager.ALGORITHM_RANDOM) // we need to create it before we start showing pictures. before it was after full load
+            if (algorithm == PreferenceManager.ALGORITHM_RANDOM || algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT) // we need to create it before we start showing pictures. before it was after full load
             {
                 lastMedia = new List<String>();
             }
@@ -428,14 +435,16 @@ namespace VideoScreensaver {
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
-                    currentItem++;                    
+					sleepAtStart();
+					currentItem++;                    
                     if (currentItem >= mediaFiles.Count)
                     {
                         currentItem = 0;
                     }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
-                    if (currentLastMediaItem < (lastMedia.Count - 1))
+					sleepAtStart();
+					if (currentLastMediaItem < (lastMedia.Count - 1))
                     {
                         currentLastMediaItem++;
                         currentItem = mediaFiles.IndexOf(lastMedia[currentLastMediaItem]);
@@ -628,6 +637,16 @@ namespace VideoScreensaver {
             imageTimer.Stop();
             FullScreenImage.Source = null;
             NextMediaItem();
+        }
+
+        private void sleepAtStart()
+        {
+            if (isLoadingFiles && currentItem <= 0)
+            {
+                // Sleep to buffer some images to start
+                Console.WriteLine("NextMediaItem(): isLoadingFiles = " + isLoadingFiles + ", currentItem = " + currentItem + ", mediaFiles.Count = " + mediaFiles.Count + ", algorithm = " + algorithm);
+                Thread.Sleep(1000);
+            }
         }
     }
 }
