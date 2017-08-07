@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ namespace VideoScreensaver {
         private int currentItem = -1;
         private int currentLastMediaItem = -1;
         private bool isLoadingFiles = false;
+        private bool exitEnabled = true; // disable exit when ShoInFolder function called
         private CancellationTokenSource cancellationSource = new CancellationTokenSource();
         private List<String> mediaPaths;
         private List<String> mediaFiles;
@@ -38,6 +40,15 @@ namespace VideoScreensaver {
         private List<String> lastMedia; // store last 100 of random files
         private int algorithm;
         private int imageRotationAngle;
+
+        #region RunExplorerOnScreensaverDesktop
+        [DllImport("user32.dll", EntryPoint = "EnumDesktopWindows", ExactSpelling = false, CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumDelegate lpEnumCallbackFunction, IntPtr lParam);
+        // Define the callback delegate's type.
+        private delegate bool EnumDelegate(IntPtr hWnd, int lParam);
+        static int windowCount = 0;
+        #endregion
+
         private double volume {
             get { return FullScreenMedia.Volume; }
             set {
@@ -174,17 +185,55 @@ namespace VideoScreensaver {
             LoadImage(mediaFiles[currentItem]);
         }
 
-        private void ShowInFolder()
+        // callback for EnumDesktopWindows
+        private static bool FilterCallback(IntPtr hWnd, int lParam)
         {
-			Process.Start("explorer", "/select, \"" + mediaFiles[currentItem] + "\"");
-			EndFullScreensaver(); // close screensaver to show opened fodlder
+            windowCount++;
+            return true;
         }
 
-        private void Pause()
+        private void ShowInFolder()
+        {
+            exitEnabled = false; // we disable exit so if we accedentialy move mouse over screensaver it will not exit
+            Pause(forcePause: true);
+
+            EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // we begin counting windows before we run explorer
+            Thread.Sleep(1000); // wait for counting (we can lower this time, need too check how fast it is)
+
+            int startedCount = windowCount; // so here we have only our screensaver running
+
+            Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { })); // without this windows will think that our screensaver hanged
+
+            Process.Start("explorer.exe", "/select, \"" + mediaFiles[currentItem] + "\"");
+            Thread.Sleep(1000); // wait until explorer started
+
+            windowCount = 0;
+            EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // count windows again
+            Thread.Sleep(1000); // wait for counting
+            while (true)
+            {
+                if (Application.Current == null) // if we exited
+                    break;
+                if (windowCount <= startedCount) // if explorer closed
+                    break;
+
+                Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { })); // without this windows will think that our screensaver hanged
+
+                windowCount = 0;
+                EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // continue counting
+                Thread.Sleep(1000);
+            }
+
+            exitEnabled = true;
+            Pause();
+            //EndFullScreensaver(); // close screensaver
+        }
+
+        private void Pause(bool forcePause = false)
         {
             if (FullScreenImage.Visibility == Visibility.Visible)
             {
-                if (imageTimer.IsEnabled)
+                if (imageTimer.IsEnabled || forcePause)
                 {
                     imageTimer.Stop();
                 } else {
@@ -193,7 +242,7 @@ namespace VideoScreensaver {
                 }
             } else
             {
-                if (GetMediaState(FullScreenMedia) == MediaState.Play)
+                if (GetMediaState(FullScreenMedia) == MediaState.Play || forcePause)
                 {
                     FullScreenMedia.Pause();
                 } else {
@@ -265,7 +314,7 @@ namespace VideoScreensaver {
         
         // End the screensaver only if running in full screen. No-op in preview mode.
         private void EndFullScreensaver() {
-            if (!preview) {
+            if (!preview && exitEnabled) {
                 cancellationSource.Cancel();
                 Application.Current?.Shutdown();                
                 //Close();
