@@ -174,7 +174,7 @@ namespace VideoScreensaver {
                       "I - Show info overlay\n " +
                       "H - Show this message\n " +
                       "R - Rotate image\n " +
-                      "S - Show file in explorer");
+                      "S - Show/Open file");
             infoShowingTimer.Start();
         }
 
