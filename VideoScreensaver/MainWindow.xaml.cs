@@ -158,6 +158,7 @@ namespace VideoScreensaver {
                     EndFullScreensaver();
                     break;
             }
+            e.Handled = true;
         }
 
         private void ShowUsage()
@@ -194,6 +195,7 @@ namespace VideoScreensaver {
 
         private void ShowInFolder()
         {
+            /*
             exitEnabled = false; // we disable exit so if we accedentialy move mouse over screensaver it will not exit
             Pause(forcePause: true);
 
@@ -227,6 +229,9 @@ namespace VideoScreensaver {
             exitEnabled = true;
             Pause();
             //EndFullScreensaver(); // close screensaver
+            */
+            Process.Start(mediaFiles[currentItem]);
+            EndFullScreensaver();
         }
 
         private void Pause(bool forcePause = false)
