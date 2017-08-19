@@ -41,14 +41,6 @@ namespace VideoScreensaver {
         private int algorithm;
         private int imageRotationAngle;
 
-        #region RunExplorerOnScreensaverDesktop
-        [DllImport("user32.dll", EntryPoint = "EnumDesktopWindows", ExactSpelling = false, CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumDelegate lpEnumCallbackFunction, IntPtr lParam);
-        // Define the callback delegate's type.
-        private delegate bool EnumDelegate(IntPtr hWnd, int lParam);
-        static int windowCount = 0;
-        #endregion
-
         private double volume {
             get { return FullScreenMedia.Volume; }
             set {
@@ -185,51 +177,9 @@ namespace VideoScreensaver {
             imageTimer.Stop();
             LoadImage(mediaFiles[currentItem]);
         }
-
-        // callback for EnumDesktopWindows
-        private static bool FilterCallback(IntPtr hWnd, int lParam)
-        {
-            windowCount++;
-            return true;
-        }
-
+        
         private void ShowInFolder()
-        {
-            /*
-            exitEnabled = false; // we disable exit so if we accedentialy move mouse over screensaver it will not exit
-            Pause(forcePause: true);
-
-            EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // we begin counting windows before we run explorer
-            Thread.Sleep(1000); // wait for counting (we can lower this time, need too check how fast it is)
-
-            int startedCount = windowCount; // so here we have only our screensaver running
-
-            Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { })); // without this windows will think that our screensaver hanged
-
-            Process.Start("explorer.exe", "/select, \"" + mediaFiles[currentItem] + "\"");
-            Thread.Sleep(1000); // wait until explorer started
-
-            windowCount = 0;
-            EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // count windows again
-            Thread.Sleep(1000); // wait for counting
-            while (true)
-            {
-                if (Application.Current == null) // if we exited
-                    break;
-                if (windowCount <= startedCount) // if explorer closed
-                    break;
-
-                Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { })); // without this windows will think that our screensaver hanged
-
-                windowCount = 0;
-                EnumDesktopWindows(IntPtr.Zero, FilterCallback, IntPtr.Zero); // continue counting
-                Thread.Sleep(1000);
-            }
-
-            exitEnabled = true;
-            Pause();
-            //EndFullScreensaver(); // close screensaver
-            */
+        {            
             Process.Start(mediaFiles[currentItem]);
             EndFullScreensaver();
         }
@@ -260,9 +210,7 @@ namespace VideoScreensaver {
         private void PromtDeleteCurrentMedia()
         {
             var dial = new PromptDialog("Delete file?", " Type yes or ok if you want to delete " + mediaFiles[currentItem] + " file", "yes,ok");            
-            /*if (
-                MessageBox.Show(this, "You want to delete " + mediaFiles[currentItem] + " file?", "Delete file?",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)*/
+            
             if (dial.ShowDialog() == true)
             {
                 String fileToDelete = mediaFiles[currentItem];
