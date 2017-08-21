@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:VideoScreensaver"
         mc:Ignorable="d"
         Title="Screensaver settings" Height="350" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-        DataContext="{StaticResource SettingsViewModel}">
+        DataContext="{StaticResource SettingsViewModel}" SizeToContent="Height">
     <Grid>
         <StackPanel>
             <StackPanel Orientation="Horizontal" Margin="3">

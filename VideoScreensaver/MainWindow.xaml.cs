@@ -6,7 +6,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,6 +26,10 @@ namespace VideoScreensaver {
         private bool preview;
         private Point? lastMousePosition = null;  // Workaround for "MouseMove always fires when maximized" bug.
         private int currentItem = -1;
+        private int currentLastMediaItem = -1;
+        private bool isLoadingFiles = false;
+        private bool exitEnabled = true; // disable exit when ShoInFolder function called
+        private CancellationTokenSource cancellationSource = new CancellationTokenSource();
         private List<String> mediaPaths;
         private List<String> mediaFiles;
         private DispatcherTimer imageTimer;
@@ -33,6 +40,7 @@ namespace VideoScreensaver {
         private List<String> lastMedia; // store last 100 of random files
         private int algorithm;
         private int imageRotationAngle;
+
         private double volume {
             get { return FullScreenMedia.Volume; }
             set {
@@ -135,13 +143,14 @@ namespace VideoScreensaver {
                     if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // Only rotate images
                         RotateImage();
                     break;
-                case Key.S:
-                    ShowInFolder();
+                case Key.O:
+                    OpenFile();
                     break;
                 default:
                     EndFullScreensaver();
                     break;
             }
+            e.Handled = true;
         }
 
         private void ShowUsage()
@@ -157,7 +166,7 @@ namespace VideoScreensaver {
                       "I - Show info overlay\n " +
                       "H - Show this message\n " +
                       "R - Rotate image\n " +
-                      "S - Show file in explorer");
+                      "O - Open file");
             infoShowingTimer.Start();
         }
 
@@ -168,18 +177,18 @@ namespace VideoScreensaver {
             imageTimer.Stop();
             LoadImage(mediaFiles[currentItem]);
         }
-
-        private void ShowInFolder()
-        {
-            Process.Start("explorer", "/select, \"" + mediaFiles[currentItem] + "\"");
-            EndFullScreensaver(); // close screensaver to show opened fodlder
+        
+        private void OpenFile()
+        {            
+            Process.Start(mediaFiles[currentItem]);
+            EndFullScreensaver();
         }
 
-        private void Pause()
+        private void Pause(bool forcePause = false)
         {
             if (FullScreenImage.Visibility == Visibility.Visible)
             {
-                if (imageTimer.IsEnabled)
+                if (imageTimer.IsEnabled || forcePause)
                 {
                     imageTimer.Stop();
                 } else {
@@ -188,7 +197,7 @@ namespace VideoScreensaver {
                 }
             } else
             {
-                if (GetMediaState(FullScreenMedia) == MediaState.Play)
+                if (GetMediaState(FullScreenMedia) == MediaState.Play || forcePause)
                 {
                     FullScreenMedia.Pause();
                 } else {
@@ -201,16 +210,16 @@ namespace VideoScreensaver {
         private void PromtDeleteCurrentMedia()
         {
             var dial = new PromptDialog("Delete file?", " Type yes or ok if you want to delete " + mediaFiles[currentItem] + " file", "yes,ok");            
-            /*if (
-                MessageBox.Show(this, "You want to delete " + mediaFiles[currentItem] + " file?", "Delete file?",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)*/
+            
             if (dial.ShowDialog() == true)
             {
                 String fileToDelete = mediaFiles[currentItem];
                 // remove filename from list so we don`t use it again
                 if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
                 {
-                    lastMedia.Remove(fileToDelete);
+                    if (lastMedia.IndexOf(fileToDelete) >= currentLastMediaItem)
+                        currentLastMediaItem--;
+                    lastMedia.Remove(fileToDelete);                    
                 }
                 mediaFiles.RemoveAt(currentItem);
                 
@@ -228,7 +237,7 @@ namespace VideoScreensaver {
                     Pause(); //unpause
                 }
 
-                File.AppendAllText("deletedFiles.log", fileToDelete + Environment.NewLine); //you can add here anything you want. 
+                File.AppendAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PhotoVideoScreensaver_deletedFiles.log"), DateTime.Now + ": " + fileToDelete + Environment.NewLine); //you can add here anything you want. 
             }
             else
             {
@@ -258,15 +267,20 @@ namespace VideoScreensaver {
         
         // End the screensaver only if running in full screen. No-op in preview mode.
         private void EndFullScreensaver() {
-            if (!preview) {
-                Application.Current?.Shutdown();
+            if (!preview && exitEnabled) {
+                cancellationSource.Cancel();
+                Application.Current?.Shutdown();                
                 //Close();
             }
         }
 
         private bool IsMedia(String fileName)
         {
-            foreach (var acceptedExtension in acceptedExtensionsImages)
+            // Ignore these files
+            if (fileName.Contains("$RECYCLE.BIN"))
+                return false;
+
+			foreach (var acceptedExtension in acceptedExtensionsImages)
             {
                 if (fileName.ToLower().EndsWith(acceptedExtension))
                     return true;
@@ -279,9 +293,9 @@ namespace VideoScreensaver {
             return false;
         }
 
-        private void AddMediaFilesFromDirRecursive(String path)
+        private async Task AddMediaFilesFromDirRecursive(String path, CancellationToken token)
         {
-            var files = Directory.GetFiles(path);
+			var files = Directory.GetFiles(path);
             // get all media files using linq
             var media = from String f in files
                         where IsMedia(f)
@@ -289,35 +303,60 @@ namespace VideoScreensaver {
             // add all files to media list
             foreach (string s in media)
             {
-                mediaFiles.Add(System.IO.Path.Combine(path, s));
+                if (token.IsCancellationRequested) return;
+                mediaFiles.Add(Path.Combine(path, s));
             }
             // go through all subfolders
             var dirs = Directory.GetDirectories(path);
             foreach (var dir in dirs)
             {
-                AddMediaFilesFromDirRecursive(dir);
+                await AddMediaFilesFromDirRecursive(dir, token);
             }
-        }
+		}
 
-        private void OnLoaded(object sender, RoutedEventArgs e) {
-            mediaPaths = PreferenceManager.ReadVideoSettings();
-            mediaFiles = new List<string>();
-            algorithm = PreferenceManager.ReadAlgorithmSetting();
-            foreach (string videoPath in mediaPaths)
+        private async Task LoadFiles()
+        {
+            var tempAlgorithm = algorithm;
+			if(algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT) algorithm = PreferenceManager.ALGORITHM_RANDOM; //set ALGORITHM_RANDOM until we load all files
+			foreach (string videoPath in mediaPaths)
             {
-                AddMediaFilesFromDirRecursive(videoPath);
+                // Verify path is reachable
+                if (!Directory.Exists(videoPath))
+                    break;
+                await AddMediaFilesFromDirRecursive(videoPath, cancellationSource.Token);
             }
+            algorithm = tempAlgorithm;
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT)
             {
                 // shuffle list
                 mediaFiles = mediaFiles.OrderBy(i => Guid.NewGuid()).ToList();
-            }
+
+				// Prepend any stored previous files from loading
+				mediaFiles.InsertRange(0, lastMedia);
+
+				// Set index of combined list at last media item
+				currentItem = lastMedia.Count - 1;
+				Console.WriteLine("LoadFiles(): b lastMedia.Count = " + lastMedia.Count + ", currentItem = " + currentItem + ", mediaFiles.Count = " + mediaFiles.Count);
+			}
             if (algorithm == PreferenceManager.ALGORITHM_RANDOM)
+            {                
+                currentItem = 0; //clear current item to start over
+                currentLastMediaItem = 0;
+            }
+            isLoadingFiles = false;
+        }
+
+        private async void OnLoaded(object sender, RoutedEventArgs e) {
+            mediaPaths = PreferenceManager.ReadVideoSettings();
+            mediaFiles = new List<string>();
+            algorithm = PreferenceManager.ReadAlgorithmSetting();
+            if (algorithm == PreferenceManager.ALGORITHM_RANDOM || algorithm == PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT) // we need to create it before we start showing pictures. before it was after full load
             {
                 lastMedia = new List<String>();
             }
-
-            if (mediaPaths.Count == 0 || mediaFiles.Count == 0) {
+            isLoadingFiles = true;
+            Task.Factory.StartNew(() => LoadFiles()); // load files in another thread
+            if ((mediaPaths.Count == 0 || mediaFiles.Count == 0) && !isLoadingFiles) {
                 ShowError("This screensaver needs to be configured before any video is displayed.");
             } else
             {
@@ -336,13 +375,19 @@ namespace VideoScreensaver {
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
                     currentItem--;
                     if (currentItem < 0)
-                        currentItem = mediaFiles.Count - 1;
+                    {
+                        if (isLoadingFiles)
+                            currentItem = 0;
+                        else
+                            currentItem = mediaFiles.Count - 1;
+                    }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
                     if (lastMedia.Count >= 2)
                     {
-                        currentItem = mediaFiles.IndexOf(lastMedia[lastMedia.Count - 2]);
-                        lastMedia.RemoveAt(lastMedia.Count - 1);
+                        if (currentLastMediaItem > 0) currentLastMediaItem--;
+                        currentItem = mediaFiles.IndexOf(lastMedia[currentLastMediaItem]);
+                        //lastMedia.RemoveAt(lastMedia.Count - 1);
                     }
                     else
                     {
@@ -375,19 +420,44 @@ namespace VideoScreensaver {
             FullScreenMedia.Stop();
             FullScreenMedia.Source = null; // FIXED Overlay display info is correct on video until you use forward/back arrow keys to traverse to images.
             imageRotationAngle = 0;
+            if (isLoadingFiles)
+            {
+                if ((currentItem + 1) >= mediaFiles.Count || mediaFiles.Count == 0) // first condition is for ALGORITHM_SEQUENTIAL and ALGORITHM_RANDOM_NO_REPEAT , second is for ALGORITHM_RANDOM
+                {
+                    ShowError("Wait untill more files loaded");
+                    infoShowingTimer.Start();
+                    Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
+                    do
+                    {
+                        Thread.Sleep(100);
+                    } while (isLoadingFiles && currentItem >= mediaFiles.Count);
+                }
+            }
             switch (algorithm)
             {
                 case PreferenceManager.ALGORITHM_SEQUENTIAL:
                 case PreferenceManager.ALGORITHM_RANDOM_NO_REPEAT:
-                    currentItem++;
+					sleepAtStart();
+					currentItem++;                    
                     if (currentItem >= mediaFiles.Count)
+                    {
                         currentItem = 0;
+                    }
                     break;
                 case PreferenceManager.ALGORITHM_RANDOM:
-                    currentItem = new Random().Next(mediaFiles.Count);
-                    lastMedia.Add(mediaFiles[currentItem]);
-                    if (lastMedia.Count > 100)
-                        lastMedia.RemoveAt(0);
+					sleepAtStart();
+					if (currentLastMediaItem < (lastMedia.Count - 1))
+                    {
+                        currentLastMediaItem++;
+                        currentItem = mediaFiles.IndexOf(lastMedia[currentLastMediaItem]);
+                    }else
+                    {
+                        currentItem = new Random().Next(mediaFiles.Count - 1);                        
+                        lastMedia.Add(mediaFiles[currentItem]);
+                        if (lastMedia.Count > 100)
+                            lastMedia.RemoveAt(0);
+                        currentLastMediaItem = lastMedia.Count - 1;
+                    }
                     break;
             }
             if (mediaFiles.Count == 0)
@@ -569,6 +639,16 @@ namespace VideoScreensaver {
             imageTimer.Stop();
             FullScreenImage.Source = null;
             NextMediaItem();
+        }
+
+        private void sleepAtStart()
+        {
+            if (isLoadingFiles && currentItem <= 0)
+            {
+                // Sleep to buffer some images to start
+                Console.WriteLine("NextMediaItem(): isLoadingFiles = " + isLoadingFiles + ", currentItem = " + currentItem + ", mediaFiles.Count = " + mediaFiles.Count + ", algorithm = " + algorithm);
+                Thread.Sleep(1000);
+            }
         }
     }
 }
