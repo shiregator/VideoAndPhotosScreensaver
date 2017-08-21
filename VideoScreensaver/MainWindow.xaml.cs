@@ -143,8 +143,8 @@ namespace VideoScreensaver {
                     if (acceptedExtensionsImages.Contains(fi.Extension.ToLower())) // Only rotate images
                         RotateImage();
                     break;
-                case Key.S:
-                    ShowInFolder();
+                case Key.O:
+                    OpenFile();
                     break;
                 default:
                     EndFullScreensaver();
@@ -166,7 +166,7 @@ namespace VideoScreensaver {
                       "I - Show info overlay\n " +
                       "H - Show this message\n " +
                       "R - Rotate image\n " +
-                      "S - Show/Open file");
+                      "O - Open file");
             infoShowingTimer.Start();
         }
 
@@ -178,7 +178,7 @@ namespace VideoScreensaver {
             LoadImage(mediaFiles[currentItem]);
         }
         
-        private void ShowInFolder()
+        private void OpenFile()
         {            
             Process.Start(mediaFiles[currentItem]);
             EndFullScreensaver();
