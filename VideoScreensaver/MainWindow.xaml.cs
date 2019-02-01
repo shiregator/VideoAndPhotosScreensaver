@@ -481,11 +481,11 @@ namespace VideoScreensaver {
         }
 
 
-        private void LoadImage(string filename)
-        {
-            FullScreenImage.RenderTransform = null;
-            FullScreenImage.Visibility = Visibility.Visible;
-            FullScreenMedia.Visibility = Visibility.Collapsed;
+		private void LoadImage(string filename)
+		{
+			FullScreenImage.RenderTransform = null;
+			FullScreenImage.Visibility = Visibility.Visible;
+			FullScreenMedia.Visibility = Visibility.Collapsed;
 
             Overlay.Text = "";
 
@@ -627,13 +627,28 @@ namespace VideoScreensaver {
             ErrorText.Visibility = Visibility.Collapsed;
         }
 
-        private void MediaEnded(object sender, RoutedEventArgs e) {
-            FullScreenMedia.Position = new TimeSpan(0);
-            FullScreenMedia.Stop();
-            FullScreenMedia.Source = null;
-            NextMediaItem();
+        private void MediaEnded(object sender, RoutedEventArgs e)
+        {
+            String userName = Environment.UserName;
+            try
+            {
+                File.AppendAllText(@"C:\Users\"+ userName + @"\Downloads\logfile.log", $"[{DateTime.Now.ToString()}] {"Entering MediaEnded\n"}");
+                FullScreenMedia.Position = new TimeSpan(0);
+                FullScreenMedia.Stop();
+                FullScreenMedia.Source = null;
+                NextMediaItem();
+                File.AppendAllText(@"C:\Users\"+ userName + @"\Downloads\logfile.log", $"[{DateTime.Now.ToString()}] {"Exiting MediaEnded\n"}");
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText(@"C:\Users\" + userName + @"\Downloads\logfile.log", $"[{DateTime.Now.ToString()}] {ex.ToString()+"\n"}");
+            }
+            finally
+            {
+                NextMediaItem();
+            }
         }
-        
+
         private void ImageTimerEnded(object sender, EventArgs e)
         {
             imageTimer.Stop();
