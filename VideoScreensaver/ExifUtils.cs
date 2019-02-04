@@ -13,6 +13,7 @@ namespace VideoScreensaver
         private BitmapMetadata _metaData = null;
         private int _width;
         private int _height;
+        private JpegBitmapDecoder decoder; 
 
 
         public ExifUtils()
@@ -35,7 +36,7 @@ namespace VideoScreensaver
         {
             try
             {
-                var decoder = new JpegBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                decoder = new JpegBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
                 var bitmapFrame = decoder.Frames[0];
 
                 if (bitmapFrame != null)
@@ -78,7 +79,7 @@ namespace VideoScreensaver
                 info.AppendLine("User comment: " + _metaData.Comment);
             }
 
-            //PrintMetadata(decoder.Frames[0].Metadata, string.Empty);
+            PrintMetadata(string.Empty);
             String xmpSubject = (String)_metaData.GetQuery("/xmp/dc:subject/{ulong=0}");
             if (!String.IsNullOrWhiteSpace(xmpSubject))
             {
