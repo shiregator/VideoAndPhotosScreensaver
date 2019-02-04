@@ -60,25 +60,26 @@ namespace VideoScreensaver
                 }
             }
             
-            foreach (var screen in Screen.AllScreens)
-            {
-                if (!screen.Primary)  // on other screens we show black screen
-                {
-                    var blackWindow = new Window();
-                    blackWindow.WindowStyle = WindowStyle.None;
-                    blackWindow.ResizeMode = ResizeMode.NoResize;
-                    blackWindow.ShowInTaskbar = false;
-                    blackWindow.Left = screen.WorkingArea.Left;
-                    blackWindow.Top = screen.WorkingArea.Top;
-                    blackWindow.Width = screen.WorkingArea.Width;
-                    blackWindow.Height = screen.WorkingArea.Height;
-                    blackWindow.Topmost = true;
-                    blackWindow.Background = new SolidColorBrush(Colors.Black);
-// Commented out to workaround keys not working   FIXED
-                    blackWindow.Show();
-                    blackWindow.WindowState = WindowState.Maximized;
-                }
-            }
+//            foreach (var screen in Screen.AllScreens)
+//            {
+//                // To run in debugger must have multiple screens and run debugger on secondary screen
+//                if (!screen.Primary)  // on other screens we show black screen (comment out when using debugger )
+//                {
+//                    var blackWindow = new Window();
+//                    blackWindow.WindowStyle = WindowStyle.None;
+//                    blackWindow.ResizeMode = ResizeMode.NoResize;
+//                    blackWindow.ShowInTaskbar = false;
+//                    blackWindow.Left = screen.WorkingArea.Left;
+//                    blackWindow.Top = screen.WorkingArea.Top;
+//                    blackWindow.Width = screen.WorkingArea.Width;
+//                    blackWindow.Height = screen.WorkingArea.Height;
+//                    blackWindow.Topmost = true;
+//                    blackWindow.Background = new SolidColorBrush(Colors.Black);
+//// Commented out to workaround keys not working   FIXED
+//                    blackWindow.Show();
+//                    blackWindow.WindowState = WindowState.Maximized;
+//                }
+//            }
             var prscreen = Screen.PrimaryScreen;
             var mainWindow = new MainWindow(false); // on Primary screen we show our screensaver
             mainWindow.WindowStyle = WindowStyle.None;
